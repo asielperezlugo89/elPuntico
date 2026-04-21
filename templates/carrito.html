@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Mi Carrito{% endblock %}
+{% block content %}
+<div class="panel">
+    <h2>Mi Carrito</h2>
+    {% if not session.carrito %}
+    <p style="text-align:center;padding:40px;color:#666;">Tu carrito esta vacio.</p>
+    <a href="{{ url_for('home') }}" class="btn btn-primary" style="display:block;text-align:center;">Seguir Comprando</a>
+    {% else %}
+    <div class="carrito-lista">
+        {% set ns = namespace(subtotal=0) %}
+        {% for item in session.carrito %}
+        {% set ns.subtotal = ns.subtotal + (item.precio * item.cantidad) %}
+        <div class="carrito-item">
+            <div class="carrito-item-info">
+                <div class="carrito-item-nombre">{{ item.nombre }}</div>
+                <div class="carrito-item-precio">{{ config.simbolo_moneda }}{{ "%.0f"|format(item.precio) }} x {{ item.cantidad }}</div>
+            </div>
+            <div class="carrito-item-subtotal">{{ config.simbolo_moneda }}{{ "%.0f"|format(item.precio * item.cantidad) }}</div>
+            <a href="{{ url_for('quitar_carrito', index=loop.index0) }}" class="btn btn-danger btn-sm">Quitar</a>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div class="carrito-total">
+        <span>Total:</span>
+        <strong>{{ config.simbolo_moneda }}{{ "%.0f"|format(ns.subtotal) }}</strong>
+    </div>
+    
+    <form method="POST" action="{{ url_for('checkout') }}" class="carrito-checkout">
+        <h3>Datos de entrega</h3>
+        <div class="form-group">
+            <label>Observaciones</label>
+            <textarea name="observaciones" rows="2" placeholder="Referencias, horario, etc."></textarea>
+        </div>
+        <button type="submit" class="btn btn-success" style="width:100%;padding:15px;font-size:16px;">
+            Confirmar Pedido
+        </button>
+    </form>
+    {% endif %}
+</div>
+<style>
+.carrito-lista { margin-bottom: 20px; }
+.carrito-item { display: flex; align-items: center; gap: 10px; padding: 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.carrito-item-info { flex: 1; min-width: 150px; }
+.carrito-item-nombre { font-weight: bold; margin-bottom: 5px; }
+.carrito-item-precio { color: #666; font-size: 14px; }
+.carrito-item-subtotal { font-size: 18px; font-weight: bold; color: {{ config.color_primario if config else '#ff9900' }}; }
+.carrito-total { text-align: right; font-size: 20px; padding: 15px; background: #e9ecef; border-radius: 8px; margin-bottom: 20px; }
+.carrito-total strong { margin-left: 10px; }
+.carrito-checkout { padding: 20px; background: white; border: 2px solid {{ config.color_primario if config else '#ff9900' }}; border-radius: 10px; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+@media (max-width: 480px) {
+    .carrito-item { flex-direction: column; text-align: center; }
+    .carrito-item-info { width: 100%; }
+    .carrito-total { text-align: center; }
+}
+</style>
+{% endblock %}

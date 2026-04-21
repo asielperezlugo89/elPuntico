@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+*.sqlite3
+*.db
+.env
+.venv/
+venv/
+env/
+instance/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Archivos locales de despliegue y sistema
+.DS_Store
+Thumbs.db
+
+# Datos persistentes locales
+img/
+

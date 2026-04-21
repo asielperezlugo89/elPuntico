@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}MiTienda - Registro{% endblock %}
+{% block content %}
+<div class="panel" style="max-width:400px;margin:50px auto;">
+    <h2>Registrarse</h2>
+    {% if error %}
+    <div class="alerta alerta-error">{{ error }}</div>
+    {% endif %}
+    <form method="POST">
+        <div class="form-group">
+            <label>Nombre completo</label>
+            <input type="text" name="nombre" required>
+        </div>
+        <div class="form-group">
+            <label>Telefono</label>
+            <input type="tel" name="telefono" required>
+        </div>
+        <div class="form-group">
+            <label>Direccion (zona/barrio)</label>
+            <input type="text" name="direccion" required>
+        </div>
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" name="email" required>
+        </div>
+        <div class="form-group">
+            <label>Contrasena</label>
+            <input type="password" name="password" required>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;padding:12px;">Registrarse</button>
+    </form>
+    <p style="margin-top:15px;text-align:center;">
+        Ya tienes cuenta? <a href="{{ url_for('login') }}">Inicia sesion</a>
+    </p>
+</div>
+{% endblock %}

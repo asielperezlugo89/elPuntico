@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+{% block title %}Panel Vendedor{% endblock %}
+{% block content %}
+<div class="tabs">
+    <a href="#productos" class="tab active">Productos</a>
+    <a href="#pedidos" class="tab">Pedidos</a>
+    <a href="#config" class="tab">Configuracion</a>
+</div>
+
+<!-- PRODUCTOS -->
+<div class="panel" id="productos">
+    <h2>Agregar Producto</h2>
+    <form method="POST" action="{{ url_for('vendedor_agregar_producto') }}">
+        <div class="form-group">
+            <label>Nombre del producto</label>
+            <input type="text" name="nombre" required>
+        </div>
+        <div class="form-group">
+            <label>Descripcion</label>
+            <textarea name="descripcion" rows="2"></textarea>
+        </div>
+<div class="form-group">
+            <label>Categoria</label>
+            <input type="text" name="categoria" list="categorias-list" required placeholder="Escribe para buscar">
+            <datalist id="categorias-list">
+                {% for cat in categorias %}
+                <option value="{{ cat.categoria }}{% if cat.subcategoria %} - {{ cat.subcategoria }}{% endif %}">
+                {% endfor %}
+            </datalist>
+        </div>
+        <div class="form-group">
+            <label>Imagen del producto</label>
+            <input type="text" name="imagen" id="imagen-input" placeholder="URL o selecciona archivo...">
+            <button type="button" class="btn btn-secondary" onclick="abrirSelectorImg()" style="margin-top:5px;">Seleccionar archivo local</button>
+        </div>
+        <div id="img-preview" style="margin-top:10px;"></div>
+        <div class="form-group">
+            <label>Precio ($)</label>
+            <input type="number" name="precio" required min="1">
+        </div>
+        <div class="form-group">
+            <label>Stock disponible</label>
+            <input type="number" name="stock" required min="0" value="10">
+        </div>
+        <button type="submit" class="btn btn-success">Agregar Producto</button>
+    </form>
+</div>
+
+<div class="panel">
+    <h2>Mis Productos</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th>Categoria</th>
+                <th>Precio</th>
+                <th>Stock</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in productos %}
+            <tr>
+                <td>{{ p.nombre }}</td>
+                <td>{{ p.categoria }}</td>
+                <td>${{ "%.0f"|format(p.precio) }}</td>
+                <td>
+                    <form method="POST" action="{{ url_for('vendedor_actualizar_stock', prod_id=p.id) }}" style="display:inline;">
+                        <input type="number" name="stock" value="{{ p.stock }}" style="width:60px;" onchange="this.form.submit()">
+                    </form>
+                </td>
+                <td>{{ 'Activo' if p.activo else 'Inactivo' }}</td>
+                <td>
+                    <a href="{{ url_for('vendedor_toggle_producto', prod_id=p.id) }}" class="btn btn-warning">{{ 'Desactivar' if p.activo else 'Activar' }}</a>
+                    <a href="{{ url_for('vendedor_eliminar_producto', prod_id=p.id) }}" class="btn btn-danger" onclick="return confirm('Eliminar?')">Eliminar</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- PEDIDOS -->
+<div class="panel" id="pedidos">
+    <h2>Pedidos Recibidos</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Cliente</th>
+                <th>Direccion</th>
+                <th>Total</th>
+                <th>Delivery</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for pe in pedidos %}
+            <tr>
+                <td>#{{ pe.id }}</td>
+                <td>{{ pe.cliente_nombre }}<br><small>{{ pe.cliente_direccion }}</small></td>
+                <td>{{ pe.observaciones or '-' }}</td>
+                <td>${{ "%.0f"|format(pe.total) }}</td>
+                <td>${{ "%.0f"|format(pe.delivery) }}</td>
+                <td class="estado-{{ pe.estado }}">{{ pe.estado }}</td>
+                <td>
+                    {% if pe.estado == 'pendiente' %}
+                    <a href="{{ url_for('vendedor_cambiar_pedido', pedido_id=pe.id, estado='confirmado') }}" class="btn btn-success">Confirmar</a>
+                    <a href="{{ url_for('vendedor_cambiar_pedido', pedido_id=pe.id, estado='cancelado') }}" class="btn btn-danger">Cancelar</a>
+                    {% elif pe.estado == 'confirmado' %}
+                    <a href="{{ url_for('vendedor_cambiar_pedido', pedido_id=pe.id, estado='entregado') }}" class="btn btn-primary">Entregar</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- CONFIGURACION -->
+<div class="panel" id="config">
+    <h2>Mi Perfil</h2>
+    <form method="POST" action="{{ url_for('vendedor_config') }}">
+        <div class="form-group">
+            <label>Nombre</label>
+            <input type="text" name="nombre" value="{{ usuario.nombre }}">
+        </div>
+        <div class="form-group">
+            <label>Telefono</label>
+            <input type="text" name="telefono" value="{{ usuario.telefono or '' }}">
+        </div>
+        <div class="form-group">
+            <label>Direccion</label>
+            <input type="text" name="direccion" value="{{ usuario.direccion or '' }}">
+        </div>
+        <button type="submit" class="btn btn-primary">Guardar Perfil</button>
+    </form>
+</div>
+
+<div class="panel">
+    <h2>Configuracion de Delivery</h2>
+    <form method="POST" action="{{ url_for('vendedor_config') }}">
+        <div class="form-group">
+            <label>Costo de delivery por entrega ($)</label>
+            <input type="number" name="precioDelivery" value="{{ usuario.precioDelivery or 0 }}" min="0">
+            <p style="color:#666;font-size:14px;">Pon 0 si no ofreces delivery.</p>
+        </div>
+        <div class="form-group">
+            <label>Monto minimo para delivery gratis ($)</label>
+            <input type="number" name="entregaGratis" value="{{ usuario.entregaGratis or 0 }}" min="0">
+        </div>
+        <button type="submit" class="btn btn-success">Guardar Configuracion</button>
+    </form>
+</div>
+
+<div id="modal-img" class="modal">
+    <div class="modal-content">
+        <h3>Seleccionar Imagen <span style="float:right;cursor:pointer;" onclick="cerrarModalImg()">✕</span></h3>
+        <iframe src="/uploads" id="img-iframe" style="width:100%;height:300px;border:none;" onload="cargarArchivos()"></iframe>
+        <div style="padding:15px 0;">
+            <input type="file" id="archivo-local" accept="image/*" style="display:none;" onchange="subirArchivo(this)">
+            <button type="button" class="btn btn-primary" onclick="document.getElementById('archivo-local').click()">Subir archivo</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let imagenesDisponibles = [];
+
+function abrirSelectorImg() {
+    document.getElementById('modal-img').classList.add('active');
+    fetch('/uploads').then(r => r.json()).then(files => {
+        imagenesDisponibles = files;
+        actualizarGaleria();
+    });
+}
+
+function cerrarModalImg() {
+    document.getElementById('modal-img').classList.remove('active');
+}
+
+function seleccionarImg(src) {
+    document.getElementById('imagen-input').value = src;
+    document.getElementById('img-preview').innerHTML = '<img src="' + src + '" style="max-width:150px;max-height:100px;border-radius:5px;">';
+    cerrarModalImg();
+}
+
+function seleccionarYGuardar(url) {
+    let formData = new FormData();
+    formData.append('url', url);
+    fetch('/upload', {method:'POST', body:formData}).then(r => r.json()).then(data => {
+        if (data.success) seleccionarImg(data.path);
+        else alert('No se pudo descargar: ' + data.error);
+    });
+}
+
+function subirArchivo(input) {
+    let file = input.files[0];
+    if (!file) return;
+    let formData = new FormData();
+    formData.append('file', file);
+    fetch('/upload', {method:'POST', body:formData}).then(r => r.json()).then(data => {
+        if (data.success) {
+            seleccionarImg(data.path);
+            fetch('/uploads').then(r => r.json()).then(files => {
+                imagenesDisponibles = files;
+                actualizarGaleria();
+            });
+        }
+    });
+    input.value = '';
+}
+
+function actualizarGaleria() {
+    let galeria = document.getElementById('img-iframe').contentWindow.document;
+    let html = '<div style="padding:10px;">';
+    html += '<p style="margin-bottom:10px;font-weight:bold;">Pegar URL para descargar:</p>';
+    html += '<div style="display:flex;gap:5px;margin-bottom:15px;">';
+    html += '<input type="text" id="url-input" placeholder="https://...jpg" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:5px;">';
+    html += '<button type="button" class="btn btn-primary" onclick="seleccionarYGuardar(document.getElementById(\'url-input\').value)">Descargar</button>';
+    html += '</div>';
+    html += '<p style="margin-bottom:10px;font-weight:bold;">Archivos locales:</p>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px;">';
+    if (imagenesDisponibles.length === 0) {
+        html += '<p style="padding:20px;color:#666;grid-column:span 3;">No hay imagenes. Sube una.</p>';
+    } else {
+        imagenesDisponibles.forEach(f => {
+            html += '<img src="/img/' + f + '" style="width:100px;height:100px;object-fit:cover;cursor:pointer;border-radius:5px;border:2px solid transparent;" onmouseover="this.style.borderColor=\'#ff9900\'" onmouseout="this.style.borderColor=\'transparent\'" onclick="parent.seleccionarImg(\'/img/' + f + '\')" title="' + f + '">';
+        });
+    }
+    html += '</div></div>';
+    galeria.body.innerHTML = html;
+}
+
+function cargarArchivos() {
+    actualizarGaleria();
+}
+</script>
+{% endblock %}

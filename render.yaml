@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: el-puntico
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    healthCheckPath: /health
+    autoDeploy: true
+    disk:
+      name: puntico-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PUNTICO_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_PATH
+        value: /var/data/mitienda.db
+      - key: IMG_FOLDER
+        value: /var/data/img
+      - key: DEFAULT_ADMIN_EMAIL
+        value: admin@elpuntico.com
+      - key: DEFAULT_ADMIN_PASSWORD
+        sync: false
+      - key: ALLOW_REMOTE_IMAGE_UPLOAD
+        value: 0
+

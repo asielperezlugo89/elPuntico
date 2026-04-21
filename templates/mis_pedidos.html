@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Mis Pedidos{% endblock %}
+{% block content %}
+<div class="panel">
+    <h2>Mis Pedidos</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Vendedor</th>
+                <th>Total</th>
+                <th>Delivery</th>
+                <th>Estado</th>
+                <th>Fecha</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in pedidos %}
+            <tr>
+                <td>#{{ p.id }}</td>
+                <td>{{ p.vendedor_nombre }}</td>
+                <td>${{ "%.0f"|format(p.total) }}</td>
+                <td>${{ "%.0f"|format(p.delivery) }}</td>
+                <td class="estado-{{ p.estado }}">{{ p.estado }}</td>
+                <td>{{ p.fecha_pedido[:10] }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" style="text-align:center;">No tienes pedidos</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
