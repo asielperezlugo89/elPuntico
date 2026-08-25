@@ -1075,6 +1075,181 @@ def _migrar_slugs():
 
 _migrar_slugs()
 
+def _seed_categorias():
+    """Si la tabla categorias esta vacia, la puebla con categorias y subcategorias por defecto."""
+    CATEGORIAS = {
+        "Alimentos y Bebidas": [
+            "Carnes y Aves", "Frutas y Verduras", "Lacteos y Huevos", "Panaderia y Reposteria",
+            "Bebidas alcoholicas", "Bebidas No alcoholicas", "Snacks y Dulces", "Enlatados y Conservas",
+            "Cereales y Granos", "Condimentos y Especias", "Congelados", "Productos Organicos",
+            "Aceites y Vinagres", "Pastas y Arroces", "Cafe y Te",
+        ],
+        "Electronica": [
+            "Celulares y Accesorios", "Computadoras y Laptops", "Tablets", "Audio y Video",
+            "Camaras y Fotografia", "Videojuegos", "Smart Home", "Wearables y Relojes Inteligentes",
+            "Cargadores y Baterias", "Cables y Adaptadores", "Almacenamiento",
+            "Monitores y Pantallas", "Impresoras", "Redes y Wi-Fi", "Componentes de PC",
+        ],
+        "Hogar y Decoracion": [
+            "Muebles", "Decoracion de Interiores", "Iluminacion", "Cocina", "Bano",
+            "Jardin y Exteriores", "Herramientas", "Organizacion y Almacenamiento",
+            "Ropa de Cama", "Cortinas y Toldos", "Cuadros y Arte Decorativo",
+            "Relojes de Pared", "Velas y Aromatizadores", "Alfombras", "Cojines y Mantas",
+        ],
+        "Moda y Accesorios": [
+            "Ropa de Hombre", "Ropa de Mujer", "Ropa de Ninos", "Ropa Deportiva",
+            "Calzado", "Bolsos y Maletas", "Joyeria y Relojes", "Gafas de Sol",
+            "Cinturones y Accesorios", "Sombreros y Gorras", "Bufandas y Guantes",
+            "Trajes y Vestidos Formales", "Ropa Interior", "Pijamas y Ropa de Dormir",
+            "Accesorios para el Cabello",
+        ],
+        "Belleza y Cuidado Personal": [
+            "Cuidado de la Piel", "Cuidado del Cabello", "Maquillaje", "Perfumes y Fragancias",
+            "Higiene Personal", "Afeitado y Cuidado Facial", "Unas y Manicure",
+            "Cuidado Dental", "Desodorantes", "Protector Solar", "Maletines de Belleza",
+            "Cuidado de Pies", "Aceites Esenciales",
+        ],
+        "Deportes y Recreacion": [
+            "Fitness y Gimnasio", "Futbol", "Beisbol", "Baloncesto", "Ciclismo",
+            "Camping y Senderismo", "Pesca", "Natacion", "Yoga y Pilates",
+            "Correr y Atletismo", "Artes Marciales", "Tenis", "Voleibol",
+            "Skateboarding", "Ajedrez y Juegos de Mesa Deportivos",
+        ],
+        "Salud y Bienestar": [
+            "Vitaminas y Suplementos", "Equipos Medicos", "Primeros Auxilios",
+            "Cuidado del Bebe", "Medicinas Naturales", "Termometros y Monitores",
+            "Mascarillas y Proteccion", "Sillas de Ruedas y Movilidad",
+            "Terapia Fisica", "Rehabilitacion", "Salud Sexual", "Cuidado de la Salud Mental",
+        ],
+        "Mascotas": [
+            "Alimento para Perros", "Alimento para Gatos", "Alimento para Aves",
+            "Alimento para Peces", "Juguetes para Mascotas", "Camas y Transportadoras",
+            "Correas y Collares", "Higiene y Aseo de Mascotas", "Salud Veterinaria",
+            "Accesorios para Perros", "Accesorios para Gatos", "Acuarios y Terrarios",
+        ],
+        "Bebes y Ninos": [
+            "Ropa de Bebe", "Juguetes Educativos", "Juguetes Infantiles",
+            "Alimentacion del Bebe", "Panales y Toallitas", "Cuna y Cama",
+            "Sillas de Bebe", "Carriolas y cochecitos", "Seguridad del Hogar para Bebes",
+            "Chupetes y Mordedores", "Bano del Bebe", "Articulos de Maternidad",
+        ],
+        "Libros y Papeleria": [
+            "Libros de Ficcion", "Libros de No Ficcion", "Libros Infantiles",
+            "Libros Academicos", "Libros de Autoayuda", "Cuadernos y Libretas",
+            "Utiles Escolares", "Arte y Manualidades", "Material de Oficina",
+            "Impresion y Papel", "Organizacion de Escritorio", "Comics y Novela Grafica",
+        ],
+        "Vehiculos": [
+            "Repuestos y Autopartes", "Accesorios de Auto", "Llantas y Rines",
+            "Aceites y Lubricantes", "Herramientas Automotrices", "Audio y Multimedia para Auto",
+            "Limpieza de Auto", "Seguridad Vial", "Bicicletas y Accesorios",
+            "Motos y Accesorios", "Carros Electricos Infantiles", "GPS y Navegadores",
+        ],
+        "Electrodomesticos": [
+            "Cocina (Licuadoras, Ollas, Sartenes)", "Refrigeracion",
+            "Lavado (Lavadoras, Secadoras)", "Climatizacion (Aires, Ventiladores)",
+            "Limpieza (Aspiradoras, Planchas)", "Pequenos Electrodomesticos",
+            "Hornos y Microondas", "Purificadores de Agua",
+            "Purificadores de Aire", "Ventilacion",
+        ],
+        "Fereteria y Construccion": [
+            "Pinturas y Acabados", "Herramientas Manuales", "Herramientas Electricas",
+            "Tornilleria y Fijaciones", "Plomeria", "Electricidad",
+            "Seguridad e Iluminacion", "Materiales de Construccion",
+            "Puertas y Ventanas", "Pisos y Revestimientos",
+        ],
+        "Jardineria": [
+            "Plantas y Semillas", "Macetas y Jardineras", "Herramientas de Jardin",
+            "Fertilizantes y Abonos", "Sistemas de Riego", "Decoracion de Jardin",
+            "Iluminacion Exterior", "Cercas y Portones", "Compost y Vermicompost",
+            "Control de Plagas",
+        ],
+        "Musica": [
+            "Instrumentos de Cuerda", "Instrumentos de Viento", "Instrumentos de Percusion",
+            "Teclados y Pianos", "Guitarras", "Accesorios Musicales",
+            "Equipos de Sonido", "Microfonos y Audio", "DJ y Produccion Musical",
+            "Partituras y Libros de Musica",
+        ],
+        "Fotografia y Video": [
+            "Camaras DSLR y Mirrorless", "Camaras de Accion (GoPro)", "Lentes y Objetivos",
+            "Tripodes y Monopodes", "Iluminacion de Estudio", "Drones",
+            "Estabilizadores y Gimbals", "Filtros y Accesorios", "Tarjetas de Memoria",
+            "Bolsos y Fundas para Camaras", "Grabadoras de Audio", "Teleprompters",
+        ],
+        "Arte y Manualidades": [
+            "Pintura (Oleo, Acuarela)", "Lienzos y Tableros", "Pinceles y Espatulas",
+            "Bocetarios y Cuadernos de Dibujo", "Lapices y Marcadores",
+            "Escultura y Modelado", "Bordido y Costura Creativa", "Resina y Epoxi",
+            "Scrapbooking", "Stickers y Cintas Decorativas", "Hilo, Tela y Macrame",
+        ],
+        "Abarrotes y Limpieza": [
+            "Productos de Limpieza del Hogar", "Detergentes y Suavizantes",
+            "Papel Higienico y Servilletas", "Bolsas de Basura y Residuos",
+            "Utensilios de Cocina", "Vajilla y Cristaleria", "Cuberteria",
+            "Bodega y Alimentos Basicos", "Envases y Recipientes", "Jabones y Sanitizantes",
+        ],
+        "Tecnologia y Software": [
+            "Software de Oficina", "Antivirus y Seguridad", "Apps y Suscripciones",
+            "Cursos Online de Tecnologia", "Servicios de Hosting",
+            "Diseno Grafico y Multimedia", "Programacion y Desarrollo", "Inteligencia Artificial",
+        ],
+        "Servicios": [
+            "Reparacion de Celulares", "Reparacion de Computadoras",
+            "Fumigacion y Control de Plagas", "Limpieza de Hogar",
+            "Plomeria y Electricidad", "Clases Particulares",
+            "Diseno Web y Marketing Digital", "Fotografia de Eventos",
+            "Transporte y Mudanzas", "Catering y Banquetes",
+            "Peluqueria a Domicilio", "Mecanica y Mantenimiento",
+        ],
+        "Bebidas y Licores": [
+            "Ron", "Whisky", "Vodka", "Tequila", "Cerveza Artesanal",
+            "Vinos", "Champagne y Espumantes", "Snaps y Licores",
+            "Bebidas Energeticas", "Agua y Bebidas Naturales",
+            "Jugos y Nectares", "Refrescos y Gaseosas",
+        ],
+        "Regalos y Souvenirs": [
+            "Regalos para Ella", "Regalos para El", "Regalos para Bebes",
+            "Regalos para Parejas", "Souvenirs Tipicos", "Cajas de Regalo",
+            "Flores y Arreglos Florales", "Tarjetas y Globos",
+            "Regalos Personalizados", "Cupones y Gift Cards",
+            "Articulos Religiosos", "Veladoras y velas aromaticas",
+        ],
+        "Seguros y Finanzas": [
+            "Seguros de Vida", "Seguros de Auto", "Seguros de Salud",
+            "Prestamos Personales", "Inversiones", "Asesoria Financiera",
+            "Tarjetas de Credito", "Criptomonedas",
+        ],
+        "Materiales Educativos": [
+            "Cursos Presenciales", "Cursos Online", "Material Didactico",
+            "Juguetes Montessori", "Kits Educativos de Ciencia",
+            "Idiomas y Certificaciones", "Preparacion de Examenes",
+            "Material para Profesores",
+        ],
+        "Agro y Campo": [
+            "Semillas Profesionales", "Fertilizantes Industriales",
+            "Maquinaria Agricola", "Riego Industrial", "Ganaderia",
+            "Avicultura", "Apicultura", "Invernaderos",
+            "Alimentos para Animales de Granja", "Herramientas de Campo",
+        ],
+    }
+    try:
+        db = get_db()
+        row = db.execute("SELECT COUNT(*) as n FROM categorias").fetchone()
+        if row and row['n'] > 0:
+            return
+        for nombre_cat, subs in CATEGORIAS.items():
+            for sub in subs:
+                try:
+                    db.execute("INSERT INTO categorias (nombre, subcategoria) VALUES (?, ?)", (nombre_cat, sub))
+                except Exception:
+                    pass
+        db.commit()
+        print(f"Seed categorias: {sum(len(v) for v in CATEGORIAS.values())} subcategorias en {len(CATEGORIAS)} categorias")
+    except Exception as e:
+        print("Seed categorias error:", e)
+
+_seed_categorias()
+
 @app.route('/<slug>')
 def tienda_publica(slug):
     """Tienda publica de cada vendedor: elpuntico.wasmer.app/la-flor"""
