@@ -375,7 +375,7 @@ def rol_required(roles):
 @app.route('/')
 def home():
     db = get_db()
-    buscar = request.args.get('buscar', '')
+    buscar = request.args.get('buscar', '').strip()
     
     # Portada = directorio de tiendas. Los productos viven dentro de cada tienda (/slug).
     sql = """SELECT u.*, 
@@ -390,7 +390,32 @@ def home():
     tiendas = db.execute(sql, params).fetchall()
     config = get_config()
     
-    return render_template('home.html', tiendas=tiendas, buscar=buscar, config=config)
+    # Búsqueda de productos en todas las tiendas (estilo Google)
+    productos_resultados = []
+    if buscar:
+        sql_prod = """
+            SELECT p.*, u.slug, u.tienda_nombre, u.nombre AS vendedor_nombre,
+                   u.imagen_tienda
+            FROM productos p
+            JOIN usuarios u ON p.vendedor_id = u.id
+            WHERE p.activo = 1 AND p.stock > 0
+              AND u.rol = 'vendedor' AND u.activo = 1
+              AND (p.nombre LIKE ? OR p.descripcion LIKE ? OR p.categoria LIKE ?)
+            ORDER BY 
+                CASE 
+                    WHEN p.nombre LIKE ? THEN 0
+                    WHEN p.nombre LIKE ? THEN 1
+                    ELSE 2
+                END,
+                p.nombre
+            LIMIT 50
+        """
+        like_exact = f'%{buscar}%'
+        like_start = f'{buscar}%'
+        like_anywhere = f'%{buscar}%'
+        productos_resultados = db.execute(sql_prod, [like_exact, like_exact, like_exact, like_start, like_anywhere]).fetchall()
+    
+    return render_template('home.html', tiendas=tiendas, buscar=buscar, config=config, productos_resultados=productos_resultados)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():

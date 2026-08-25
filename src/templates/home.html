@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ config.nombre_sitio if config }}{% endblock %}
+{% block title %}{{ config.nombre_sitio if config else 'MiTienda' }}{% endblock %}
 
 {% block content %}
 {% if config.mostrar_banner == '1' and config.banner_principal %}
@@ -13,12 +13,53 @@
 
 <div class="buscador">
     <form method="GET">
-        <input type="text" name="buscar" placeholder="Buscar tienda por nombre o lugar..." value="{{ buscar }}">
+        <input type="text" name="buscar" placeholder="Buscar tienda, producto, lugar..." value="{{ buscar }}">
         <button type="submit">Buscar</button>
     </form>
 </div>
 
-<h2 style="margin-bottom:15px;">{% if buscar %}Tiendas encontradas{% else %}Todas las tiendas{% endif %}</h2>
+{% if buscar %}
+    {# ============ MODO BÚSQUEDA: Productos encontrados + Tiendas ============ #}
+    <h2 style="margin-bottom:15px;">{% if productos_resultados %}{{ productos_resultados|length }} producto{{ 's' if productos_resultados|length != 1 }} encontrado{{ 's' if productos_resultados|length != 1 }} en tiendas{% else %}No se encontraron productos{% endif %}</h2>
+
+    {% if productos_resultados %}
+    <div class="resultados-busqueda">
+        {% for p in productos_resultados %}
+        <a href="/{{ p.slug }}?highlight={{ buscar|urlencode }}" class="resultado-item">
+            <div class="resultado-img">
+                {% if p.imagen %}
+                    <img src="{{ p.imagen }}" alt="{{ p.nombre }}" onerror="this.parentElement.innerHTML='<span class=resultado-placeholder>{{ p.nombre[:2]|upper }}</span>'">
+                {% else %}
+                    <span class="resultado-placeholder">{{ p.nombre[:2]|upper }}</span>
+                {% endif %}
+            </div>
+            <div class="resultado-info">
+                <div class="resultado-url">/{{ p.slug }} › {{ p.categoria or 'Productos' }}</div>
+                <div class="resultado-titulo">{{ p.nombre }}</div>
+                <div class="resultado-snippet">{{ p.descripcion[:120] if p.descripcion else 'Sin descripción' }}{% if p.descripcion and p.descripcion|length > 120 %}...{% endif %}</div>
+                <div class="resultado-meta">
+                    <span class="resultado-tienda">🏪 {{ p.tienda_nombre or p.vendedor_nombre }}</span>
+                    <span class="resultado-precio">{{ config.simbolo_moneda if config else '$' }}{{ p.precio }}</span>
+                    {% if p.stock <= 5 %}
+                        <span class="resultado-stock bajo">¡Quedan {{ p.stock }}!</span>
+                    {% endif %}
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="sin-resultados">
+        <p>No hay productos que coincidan con "<strong>{{ buscar }}</strong>".</p>
+        <p style="color:#999;margin-top:10px;">Intenta con otros términos o revisa las tiendas abajo.</p>
+    </div>
+    {% endif %}
+
+    <hr style="margin:30px 0;border:none;border-top:1px solid #e0e0e0;">
+    <h2 style="margin-bottom:15px;">{% if tiendas %}Tiendas que coinciden{% else %}No se encontraron tiendas{% endif %}</h2>
+{% else %}
+    <h2 style="margin-bottom:15px;">Todas las tiendas</h2>
+{% endif %}
 
 <div class="grid-tiendas">
     {% for t in tiendas %}
@@ -40,9 +81,10 @@
         <span class="tienda-entrar">Entrar a la tienda →</span>
     </a>
     {% else %}
-    <p style="grid-column:1/-1;text-align:center;color:#666;padding:40px;">No hay tiendas disponibles todavia.</p>
+    <p style="grid-column:1/-1;text-align:center;color:#666;padding:40px;">{% if buscar %}No hay tiendas que coincidan con "{{ buscar }}".{% else %}No hay tiendas disponibles todavia.{% endif %}</p>
     {% endfor %}
 </div>
+
 <style>
 .grid-tiendas { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
 .tienda-card { background: white; border-radius: 12px; padding: 25px 20px; text-align: center; text-decoration: none; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border: 2px solid transparent; transition: transform .15s, border-color .15s; display: block; color: inherit; }
@@ -52,6 +94,29 @@
 .tienda-nombre { font-weight: bold; font-size: 18px; margin-bottom: 8px; color: {{ config.color_texto if config else '#333' }}; }
 .tienda-dato { color: #666; font-size: 13px; margin-bottom: 4px; }
 .tienda-entrar { display: inline-block; margin-top: 12px; color: {{ config.color_primario if config else '#ff9900' }}; font-weight: bold; font-size: 14px; }
-@media (max-width: 480px) { .grid-tiendas { grid-template-columns: 1fr; } }
+
+/* Resultados de búsqueda estilo Google */
+.resultados-busqueda { max-width: 800px; }
+.resultado-item { display: flex; gap: 16px; padding: 16px; margin-bottom: 8px; background: white; border-radius: 10px; text-decoration: none; color: inherit; box-shadow: 0 1px 6px rgba(0,0,0,0.06); transition: box-shadow .15s, transform .1s; }
+.resultado-item:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.12); transform: translateY(-2px); }
+.resultado-img { flex-shrink: 0; width: 100px; height: 100px; border-radius: 8px; overflow: hidden; background: #f0f2f5; display: flex; align-items: center; justify-content: center; }
+.resultado-img img { width: 100%; height: 100%; object-fit: cover; }
+.resultado-placeholder { font-size: 24px; font-weight: bold; color: #999; }
+.resultado-info { flex: 1; min-width: 0; }
+.resultado-url { font-size: 12px; color: #202124; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.resultado-titulo { font-size: 18px; color: #1a0dab; font-weight: 500; margin-bottom: 4px; line-height: 1.3; }
+.resultado-snippet { font-size: 14px; color: #4d5156; line-height: 1.4; margin-bottom: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.resultado-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.resultado-tienda { font-size: 13px; color: #28a745; font-weight: 500; }
+.resultado-precio { font-size: 16px; font-weight: bold; color: {{ config.color_primario if config else '#ff9900' }}; }
+.resultado-stock { font-size: 12px; color: #dc3545; font-weight: 600; }
+.sin-resultados { background: white; border-radius: 10px; padding: 30px; text-align: center; color: #666; }
+
+@media (max-width: 480px) { 
+    .grid-tiendas { grid-template-columns: 1fr; }
+    .resultado-img { width: 70px; height: 70px; }
+    .resultado-titulo { font-size: 16px; }
+    .resultado-meta { flex-direction: column; align-items: flex-start; gap: 4px; }
+}
 </style>
 {% endblock %}
