@@ -831,6 +831,28 @@ def admin_eliminar_categoria(cat_id):
     db.commit()
     return redirect(url_for('admin_panel'))
 
+@app.route('/admin/seed-categorias')
+@rol_required(['admin'])
+def admin_seed_categorias():
+    """Fuerza la insercion de categorias por defecto si la tabla esta vacia."""
+    db = get_db()
+    cats = _seed_cats_data()
+    insertados = 0
+    for nombre_cat, subs in cats.items():
+        for sub in subs:
+            try:
+                if DB_BACKEND == 'mysql':
+                    db.execute("INSERT IGNORE INTO categorias (nombre, subcategoria) VALUES (%s, %s)", (nombre_cat, sub))
+                else:
+                    db.execute("INSERT OR IGNORE INTO categorias (nombre, subcategoria) VALUES (?, ?)", (nombre_cat, sub))
+                insertados += 1
+            except Exception:
+                pass
+    db.commit()
+    total = db.execute("SELECT COUNT(*) as n FROM categorias").fetchone()
+    count = total['n'] if total else 0
+    return jsonify({'ok': True, 'intentados': insertados, 'total_en_db': count})
+
 @app.route('/vendedor')
 @rol_required(['vendedor'])
 def vendedor_panel():
