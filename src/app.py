@@ -899,9 +899,13 @@ def admin_eliminar_pedido(pedido_id):
 @rol_required(['admin'])
 def admin_config():
     db = get_db()
+    is_mysql = DB_BACKEND == 'mysql'
     for key in request.form:
         val = request.form[key]
-        db.execute("INSERT OR REPLACE INTO config (clave, valor) VALUES (?, ?)", (key, val))
+        if is_mysql:
+            db.execute("REPLACE INTO config (clave, valor) VALUES (%s, %s)", (key, val))
+        else:
+            db.execute("INSERT OR REPLACE INTO config (clave, valor) VALUES (?, ?)", (key, val))
     db.commit()
     return redirect(url_for('admin_panel'))
 
