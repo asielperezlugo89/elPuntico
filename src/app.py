@@ -824,6 +824,54 @@ def _ajustar_stock_pedido(db, pedido_id, devolver):
         else:
             db.execute("UPDATE productos SET stock = stock - ? WHERE id = ?", (it['cantidad'], it['producto_id']))
 
+def _auto_cancelar_pedidos_pendientes():
+    """Cancela automaticamente pedidos pendientes con mas de 24h y devuelve el stock."""
+    try:
+        if DB_BACKEND == 'mysql':
+            conn = _mysql_connect()
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT p.id FROM pedidos p
+                WHERE p.estado = 'pendiente'
+                  AND TIMESTAMPDIFF(HOUR, p.fecha_pedido, NOW()) >= 24
+            """)
+            pedidos = cur.fetchall()
+            for row in pedidos:
+                pid = row[0] if isinstance(row, (list, tuple)) else row['id'] if isinstance(row, dict) else row.id
+                cur.execute("UPDATE pedidos SET estado = 'cancelado' WHERE id = %s AND estado = 'pendiente'", (pid,))
+                cur.execute("""
+                    SELECT producto_id, cantidad FROM pedido_items WHERE pedido_id = %s
+                """, (pid,))
+                items = cur.fetchall()
+                for it in items:
+                    prod_id = it[0] if isinstance(it, (list, tuple)) else it['producto_id'] if isinstance(it, dict) else it.producto_id
+                    cant = it[1] if isinstance(it, (list, tuple)) else it['cantidad'] if isinstance(it, dict) else it.cantidad
+                    cur.execute("UPDATE productos SET stock = stock + %s WHERE id = %s", (cant, prod_id))
+            conn.commit()
+            cur.close()
+            conn.close()
+        else:
+            import sqlite3 as _sqlite
+            conn = _sqlite.connect(DB_NAME)
+            conn.row_factory = _sqlite.Row
+            pedidos = conn.execute("""
+                SELECT id FROM pedidos
+                WHERE estado = 'pendiente'
+                  AND (julianday('now') - julianday(fecha_pedido)) * 24 >= 24
+            """).fetchall()
+            for p in pedidos:
+                pid = p['id']
+                conn.execute("UPDATE pedidos SET estado = 'cancelado' WHERE id = ? AND estado = 'pendiente'", (pid,))
+                items = conn.execute("SELECT producto_id, cantidad FROM pedido_items WHERE pedido_id = ?", (pid,)).fetchall()
+                for it in items:
+                    conn.execute("UPDATE productos SET stock = stock + ? WHERE id = ?", (it['cantidad'], it['producto_id']))
+            conn.commit()
+            conn.close()
+        return len(pedidos) if pedidos else 0
+    except Exception as e:
+        print(f"[auto-cancel] Error: {e}")
+        return 0
+
 @app.route('/admin/pedido/<int:pedido_id>/<string:estado>')
 @rol_required(['admin'])
 def admin_cambiar_pedido(pedido_id, estado):
@@ -1423,6 +1471,18 @@ def _seed_categorias_sqlite(conn):
 
 # Inicializa la BD (idempotente: CREATE TABLE IF NOT EXISTS + INSERT OR IGNORE).
 init_db()
+_auto_cancelar_pedidos_pendientes()
+_ultima_revision_pedidos = __import__('time').time()
+
+@app.before_request
+def _check_pedidos_expirados():
+    """Cada 30 minutos cancela pedidos pendientes con mas de 24h."""
+    global _ultima_revision_pedidos
+    import time
+    ahora = time.time()
+    if ahora - _ultima_revision_pedidos > 1800:
+        _ultima_revision_pedidos = ahora
+        _auto_cancelar_pedidos_pendientes()
 
 @app.route('/<slug>')
 def tienda_publica(slug):
