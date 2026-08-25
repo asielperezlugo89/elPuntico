@@ -9,15 +9,6 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
         body { background: {{ config.color_fondo if config else '#f0f2f5' }}; min-height: 100vh; }
         
-        header { background: {{ config.color_primario if config else '#ff9900' }}; padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; position: sticky; top: 0; z-index: 100; }
-        .logo { color: white; font-size: 24px; font-weight: bold; text-decoration: none; }
-        .menu-toggle { display: none; background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 18px; }
-        
-        nav { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-        .nav-user { color: white; font-size: 13px; opacity: 0.95; }
-        nav a, nav button { color: #ffffff; text-decoration: none; padding: 10px 18px; border-radius: 24px; background: #c76a00; border: 1px solid rgba(255,255,255,0.35); cursor: pointer; font-size: 15px; -webkit-text-fill-color: #ffffff; }
-        nav a:hover, nav button:hover { background: #a85a00; }
-        
         .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         
         .buscador { background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -88,24 +79,6 @@
         .stat-card .label { color: #666; font-size: 14px; }
         
         @media (max-width: 768px) {
-            .menu-toggle { display: none; }
-            header { justify-content: space-between; }
-            nav {
-                display: flex !important;
-                width: 100%;
-                flex-direction: row;
-                flex-wrap: wrap;
-                justify-content: center;
-                gap: 5px;
-                padding-top: 8px;
-                border-top: 1px solid rgba(255,255,255,0.2);
-                margin-top: 8px;
-            }
-            nav a, nav span { width: 100%; text-align: center; box-sizing: border-box; }
-            header { flex-direction: row; padding: 10px 15px; }
-            header .logo { font-size: 20px; }
-            nav { flex-wrap: wrap; justify-content: center; gap: 5px; }
-            nav a, nav button, nav span { padding: 9px 14px; font-size: 14px; }
             .container { padding: 10px; }
             .grid-productos { grid-template-columns: 1fr; gap: 10px; }
             .producto { margin-bottom: 0; }
@@ -146,48 +119,129 @@
             .stats-grid { grid-template-columns: 1fr 1fr; }
         }
     </style>
+    <style>
+    /* Sidebar global */
+    .app-layout { display: flex; min-height: 100vh; }
+    .app-sidebar { width: 260px; background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); color: white; padding: 0; flex-shrink: 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 50; }
+    .app-sidebar .sb-header { padding: 24px 20px 16px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    .app-sidebar .sb-avatar { width: 56px; height: 56px; border-radius: 50%; background: {{ config.color_primario if config else '#ff9900' }}; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 10px; color: white; font-weight: bold; }
+    .app-sidebar .sb-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+    .app-sidebar .sb-name { font-size: 16px; font-weight: 600; }
+    .app-sidebar .sb-sub { font-size: 13px; opacity: 0.7; margin-top: 2px; }
+    .app-sidebar .sb-nav { padding: 12px 0; }
+    .app-sidebar .sb-nav a { display: flex; align-items: center; gap: 12px; padding: 13px 20px; color: rgba(255,255,255,0.75); text-decoration: none; font-size: 15px; transition: all 0.2s; border-left: 3px solid transparent; }
+    .app-sidebar .sb-nav a:hover { background: rgba(255,255,255,0.08); color: white; }
+    .app-sidebar .sb-nav a.active { background: rgba(255,255,255,0.12); color: white; border-left-color: {{ config.color_primario if config else '#ff9900' }}; font-weight: 600; }
+    .app-sidebar .sb-nav a .icon { font-size: 18px; width: 24px; text-align: center; }
+    .app-sidebar .sb-nav .badge { margin-left: auto; background: #dc3545; color: white; font-size: 11px; padding: 2px 7px; border-radius: 10px; font-weight: 600; }
+    .app-sidebar .sb-divider { height: 1px; background: rgba(255,255,255,0.1); margin: 8px 20px; }
+    .app-content { flex: 1; padding: 24px; min-width: 0; }
+    .app-hamburger { display: none; position: fixed; bottom: 20px; left: 20px; width: 52px; height: 52px; border-radius: 50%; background: {{ config.color_primario if config else '#ff9900' }}; color: white; border: none; font-size: 22px; cursor: pointer; z-index: 200; box-shadow: 0 4px 16px rgba(0,0,0,0.3); align-items: center; justify-content: center; }
+    .app-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 45; }
+    .app-overlay.active { display: block; }
+    @media (max-width: 768px) {
+        .app-sidebar { position: fixed; top: 0; left: 0; width: 280px; height: 100vh; transform: translateX(-100%); z-index: 50; border-radius: 0 16px 16px 0; }
+        .app-sidebar.open { transform: translateX(0); }
+        .app-sidebar .sb-header { padding-top: 40px; }
+        .app-hamburger { display: flex; }
+        .app-content { padding: 16px; padding-bottom: 80px; }
+    }
+    </style>
+    </style>
     {% block extra %}{% endblock %}
 </head>
 <body>
-{% set ocultar_header = (request.endpoint == 'vendedor_panel') %}
-{% if not ocultar_header %}
-<header>
-    {% set en_tienda = (vendedor is defined) and vendedor and vendedor.slug %}
-    <a href="{{ '/' + vendedor.slug if en_tienda else url_for('home') }}" class="logo">{{ config.nombre_sitio if config else 'MiTienda' }}</a>
-    <button class="menu-toggle" onclick="toggleMenu()">☰</button>
-    <nav id="main-nav">
-        {% if session.usuario_id %}
-            <span class="nav-user">Hola, {{ session.nombre }}</span>
-            <a href="{{ url_for('home') }}">🏪 Ir a la Tienda</a>
-            {% if session.rol == 'admin' %}
-                <a href="{{ url_for('admin_panel') }}">🛠️ Admin</a>
-                <a href="{{ url_for('cambiar_password') }}">🔑 Cambiar Clave</a>
-                <a href="{{ url_for('logout') }}">🚪 Salir</a>
-            {% elif session.rol == 'vendedor' %}
-                <a href="{{ url_for('vendedor_panel') }}">📦 Mi Panel</a>
-                <a href="{{ url_for('cambiar_password') }}">🔑 Cambiar Clave</a>
-                <a href="{{ url_for('logout') }}">🚪 Salir</a>
+{% set ocultar_sidebar = (request.endpoint == 'vendedor_panel') %}
+{% if not ocultar_sidebar %}
+<div class="app-layout">
+    <aside class="app-sidebar" id="app-sidebar">
+        <div class="sb-header">
+            {% if session.usuario_id %}
+                {% if session.rol == 'vendedor' and session.tienda_slug is defined and session.tienda_slug %}
+                <a href="/{{ session.tienda_slug }}" style="text-decoration:none;color:white;">
+                    <div class="sb-avatar">{{ session.nombre[:1]|upper }}</div>
+                    <div class="sb-name">{{ session.nombre }}</div>
+                </a>
+                {% else %}
+                <div class="sb-avatar">{{ session.nombre[:1]|upper }}</div>
+                <div class="sb-name">{{ session.nombre }}</div>
+                {% endif %}
+                <div class="sb-sub">{{ session.rol|capitalize }}</div>
             {% else %}
-                <a href="{{ url_for('mis_pedidos') }}">🧾 Mis Pedidos</a>
-                <a href="{{ url_for('logout') }}">🚪 Salir</a>
+                <a href="{{ url_for('home') }}" style="text-decoration:none;color:white;">
+                    <div class="sb-avatar" style="font-size:18px;">{{ config.nombre_sitio[:2] if config else 'MT' }}</div>
+                    <div class="sb-name">{{ config.nombre_sitio if config else 'MiTienda' }}</div>
+                </a>
+                <div class="sb-sub">Directorio de tiendas</div>
             {% endif %}
-        {% endif %}
-        <a href="{{ url_for('carrito') }}">🛒 Carrito (<span id="nav-carrito-num">{{ session.carrito|length if session.carrito else 0 }}</span>)</a>
-    </nav>
-</header>
+        </div>
+        <nav class="sb-nav">
+            <a href="{{ url_for('home') }}" class="{{ 'active' if request.endpoint == 'home' }}">
+                <span class="icon">&#127968;</span> Inicio
+            </a>
+            {% if session.usuario_id %}
+                {% if session.rol == 'admin' %}
+                <a href="{{ url_for('admin_panel') }}" class="{{ 'active' if request.endpoint == 'admin_panel' }}">
+                    <span class="icon">&#128736;</span> Admin
+                </a>
+                {% elif session.rol == 'vendedor' %}
+                <a href="{{ url_for('vendedor_panel') }}" class="{{ 'active' if request.endpoint == 'vendedor_panel' }}">
+                    <span class="icon">&#128230;</span> Mi Panel
+                </a>
+                {% else %}
+                <a href="{{ url_for('mis_pedidos') }}" class="{{ 'active' if request.endpoint == 'mis_pedidos' }}">
+                    <span class="icon">&#129534;</span> Mis Pedidos
+                </a>
+                {% endif %}
+                <div class="sb-divider"></div>
+                <a href="{{ url_for('cambiar_password') }}" class="{{ 'active' if request.endpoint == 'cambiar_password' }}">
+                    <span class="icon">&#128273;</span> Cambiar Clave
+                </a>
+                <a href="{{ url_for('logout') }}">
+                    <span class="icon">&#128682;</span> Cerrar Sesion
+                </a>
+            {% else %}
+                <div class="sb-divider"></div>
+                <a href="{{ url_for('login') }}" class="{{ 'active' if request.endpoint == 'login' }}">
+                    <span class="icon">&#128274;</span> Iniciar Sesion
+                </a>
+                <a href="{{ url_for('registro') }}" class="{{ 'active' if request.endpoint == 'registro' }}">
+                    <span class="icon">&#128101;</span> Crear Cuenta
+                </a>
+            {% endif %}
+            <div class="sb-divider"></div>
+            <a href="{{ url_for('carrito') }}" class="{{ 'active' if request.endpoint == 'carrito' }}">
+                <span class="icon">&#128722;</span> Carrito
+                <span class="badge" id="sb-carrito-badge" style="{{ 'display:none' if not session.carrito or session.carrito|length == 0 }}">{{ session.carrito|length if session.carrito else 0 }}</span>
+            </a>
+        </nav>
+    </aside>
+    <div class="app-overlay" id="app-overlay" onclick="closeAppSidebar()"></div>
 {% endif %}
-<script>
-function toggleMenu() {
-    var nav = document.getElementById('main-nav');
-    nav.classList.toggle('active');
-}
-</script>
 
-<div class="container">
+<div class="{{ 'app-content' if not ocultar_sidebar else '' }}">
     {% block content %}{% endblock %}
 </div>
 
+{% if not ocultar_sidebar %}
+<button class="app-hamburger" id="app-hamburger" onclick="toggleAppSidebar()">&#9776;</button>
+{% endif %}
+
 <div id="toast-carrito" style="display:none;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#28a745;color:white;padding:12px 22px;border-radius:30px;font-weight:bold;z-index:9999;box-shadow:0 4px 15px rgba(0,0,0,0.3);"></div>
+<script>
+function toggleAppSidebar() {
+    var sb = document.getElementById('app-sidebar');
+    var ov = document.getElementById('app-overlay');
+    if (sb) sb.classList.toggle('open');
+    if (ov) ov.classList.toggle('active');
+}
+function closeAppSidebar() {
+    var sb = document.getElementById('app-sidebar');
+    var ov = document.getElementById('app-overlay');
+    if (sb) sb.classList.remove('open');
+    if (ov) ov.classList.remove('active');
+}
+</script>
 <script>
 // Agregar al carrito sin abandonar la pagina.
 document.addEventListener('submit', function(e) {
@@ -200,7 +254,16 @@ document.addEventListener('submit', function(e) {
         .then(function(r) { return r.json(); })
         .then(function(d) {
             var num = document.getElementById('nav-carrito-num');
+            var badge = document.getElementById('sb-carrito-badge');
             if (num && d && typeof d.count !== 'undefined') num.textContent = d.count;
+            if (badge) {
+                if (d && typeof d.count !== 'undefined' && d.count > 0) {
+                    badge.textContent = d.count;
+                    badge.style.display = 'inline';
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
             var t = document.getElementById('toast-carrito');
             if (t) {
                 t.textContent = (d && d.ok) ? '\u2713 Agregado al carrito' : 'No se pudo agregar';

@@ -19,7 +19,6 @@
 </div>
 
 {% if buscar %}
-    {# ============ MODO BÚSQUEDA: Productos encontrados + Tiendas ============ #}
     <h2 style="margin-bottom:15px;">{% if productos_resultados %}{{ productos_resultados|length }} producto{{ 's' if productos_resultados|length != 1 }} encontrado{{ 's' if productos_resultados|length != 1 }} en tiendas{% else %}No se encontraron productos{% endif %}</h2>
 
     {% if productos_resultados %}
@@ -36,12 +35,12 @@
             <div class="resultado-info">
                 <div class="resultado-url">/{{ p.slug }} › {{ p.categoria or 'Productos' }}</div>
                 <div class="resultado-titulo">{{ p.nombre }}</div>
-                <div class="resultado-snippet">{{ p.descripcion[:120] if p.descripcion else 'Sin descripción' }}{% if p.descripcion and p.descripcion|length > 120 %}...{% endif %}</div>
+                <div class="resultado-snippet">{{ p.descripcion[:120] if p.descripcion else 'Sin descripcion' }}{% if p.descripcion and p.descripcion|length > 120 %}...{% endif %}</div>
                 <div class="resultado-meta">
-                    <span class="resultado-tienda">🏪 {{ p.tienda_nombre or p.vendedor_nombre }}</span>
+                    <span class="resultado-tienda">{{ p.tienda_nombre or p.vendedor_nombre }}</span>
                     <span class="resultado-precio">{{ config.simbolo_moneda if config else '$' }}{{ p.precio }}</span>
                     {% if p.stock <= 5 %}
-                        <span class="resultado-stock bajo">¡Quedan {{ p.stock }}!</span>
+                        <span class="resultado-stock bajo">Quedan {{ p.stock }}</span>
                     {% endif %}
                 </div>
             </div>
@@ -51,7 +50,7 @@
     {% else %}
     <div class="sin-resultados">
         <p>No hay productos que coincidan con "<strong>{{ buscar }}</strong>".</p>
-        <p style="color:#999;margin-top:10px;">Intenta con otros términos o revisa las tiendas abajo.</p>
+        <p style="color:#999;margin-top:10px;">Intenta con otros terminos o revisa las tiendas abajo.</p>
     </div>
     {% endif %}
 
@@ -71,12 +70,12 @@
         <div class="tienda-avatar">{{ (t.tienda_nombre or t.nombre)[:1]|upper }}</div>
         {% endif %}
         <div class="tienda-nombre">{{ t.tienda_nombre or t.nombre }}</div>
-        {% if t.direccion %}<div class="tienda-dato">📍 {{ t.direccion }}</div>{% endif %}
-        <div class="tienda-dato">📦 {{ t.num_productos }} producto{{ 's' if t.num_productos != 1 }}</div>
+        {% if t.direccion %}<div class="tienda-dato">&#128205; {{ t.direccion }}</div>{% endif %}
+        <div class="tienda-dato">&#128230; {{ t.num_productos }} producto{{ 's' if t.num_productos != 1 }}</div>
         {% if t.precioDelivery and t.precioDelivery > 0 %}
-            <div class="tienda-dato">🚚 Envío {{ config.simbolo_moneda }}{{ t.precioDelivery }}{% if t.entregaGratis > 0 %} · gratis desde {{ config.simbolo_moneda }}{{ t.entregaGratis }}{% endif %}</div>
+            <div class="tienda-dato">&#128666; Envio {{ config.simbolo_moneda }}{{ t.precioDelivery }}{% if t.entregaGratis > 0 %} · gratis desde {{ config.simbolo_moneda }}{{ t.entregaGratis }}{% endif %}</div>
         {% else %}
-            <div class="tienda-dato">🚚 Sin envío</div>
+            <div class="tienda-dato">&#128666; Sin envio</div>
         {% endif %}
         <span class="tienda-entrar">Entrar a la tienda →</span>
     </a>
@@ -95,7 +94,6 @@
 .tienda-dato { color: #666; font-size: 13px; margin-bottom: 4px; }
 .tienda-entrar { display: inline-block; margin-top: 12px; color: {{ config.color_primario if config else '#ff9900' }}; font-weight: bold; font-size: 14px; }
 
-/* Resultados de búsqueda estilo Google */
 .resultados-busqueda { max-width: 800px; }
 .resultado-item { display: flex; gap: 16px; padding: 16px; margin-bottom: 8px; background: white; border-radius: 10px; text-decoration: none; color: inherit; box-shadow: 0 1px 6px rgba(0,0,0,0.06); transition: box-shadow .15s, transform .1s; }
 .resultado-item:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.12); transform: translateY(-2px); }

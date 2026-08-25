@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ vendedor.nombre }}{% endblock %}
+{% block title %}{{ vendedor.tienda_nombre or vendedor.nombre }}{% endblock %}
 {% block content %}
 <div class="panel tienda-header">
     {% if vendedor.imagen_tienda %}
@@ -10,8 +10,8 @@
     {% endif %}
     <div class="tienda-info">
         <h1>{{ vendedor.tienda_nombre or vendedor.nombre }}</h1>
-        {% if vendedor.direccion %}<p>📍 {{ vendedor.direccion }}</p>{% endif %}
-        <p>🚚 Envío: {{ config.simbolo_moneda }}{{ vendedor.precioDelivery or 0 }}{% if vendedor.entregaGratis and vendedor.entregaGratis > 0 %} (gratis desde {{ config.simbolo_moneda }}{{ vendedor.entregaGratis }}){% endif %}</p>
+        {% if vendedor.direccion %}<p>&#128205; {{ vendedor.direccion }}</p>{% endif %}
+        <p>&#128666; Envio: {{ config.simbolo_moneda }}{{ vendedor.precioDelivery or 0 }}{% if vendedor.entregaGratis and vendedor.entregaGratis > 0 %} (gratis desde {{ config.simbolo_moneda }}{{ vendedor.entregaGratis }}){% endif %}</p>
     </div>
     <a href="/" class="btn btn-secondary">Ver todas las tiendas</a>
 </div>
@@ -23,8 +23,8 @@
     <div class="producto">
         <div class="producto-img">
             {% if p.imagen %}
-                <img src="{{ p.imagen }}" alt="{{ p.nombre }}" onerror="this.parentElement.innerHTML='📦'">
-            {% else %}📦{% endif %}
+                <img src="{{ p.imagen }}" alt="{{ p.nombre }}" onerror="this.parentElement.innerHTML='&#128230;'">
+            {% else %}&#128230;{% endif %}
         </div>
         <div class="producto-info">
             <div class="producto-nombre">{{ p.nombre }}</div>
