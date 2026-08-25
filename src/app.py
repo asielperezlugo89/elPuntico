@@ -904,7 +904,7 @@ def vendedor_panel():
     
     categorias = db.execute("SELECT nombre as categoria, subcategoria FROM categorias ORDER BY nombre, subcategoria").fetchall()
     cats_dict = {}
-    for c in cats:
+    for c in categorias:
         key = c['categoria']
         if key not in cats_dict:
             cats_dict[key] = []
