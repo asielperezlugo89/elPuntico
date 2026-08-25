@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}{{ config.nombre_sitio if config else 'MiTienda' }}{% endblock %}</title>
+    <meta name="color-scheme" content="light">
     <style>
+        :root { color-scheme: light; }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
         body { background: {{ config.color_fondo if config else '#f0f2f5' }}; min-height: 100vh; }
         
@@ -12,9 +13,10 @@
         .logo { color: white; font-size: 24px; font-weight: bold; text-decoration: none; }
         .menu-toggle { display: none; background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 18px; }
         
-        nav { display: flex; gap: 15px; align-items: center; }
-        nav a, nav button { color: white; text-decoration: none; padding: 8px 15px; border-radius: 20px; background: rgba(255,255,255,0.2); border: none; cursor: pointer; font-size: 14px; }
-        nav a:hover, nav button:hover { background: rgba(255,255,255,0.3); }
+        nav { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .nav-user { color: white; font-size: 13px; opacity: 0.95; }
+        nav a, nav button { color: #ffffff; text-decoration: none; padding: 10px 18px; border-radius: 24px; background: #c76a00; border: 1px solid rgba(255,255,255,0.35); cursor: pointer; font-size: 15px; -webkit-text-fill-color: #ffffff; }
+        nav a:hover, nav button:hover { background: #a85a00; }
         
         .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         
@@ -86,23 +88,24 @@
         .stat-card .label { color: #666; font-size: 14px; }
         
         @media (max-width: 768px) {
-            .menu-toggle { display: block; }
+            .menu-toggle { display: none; }
             header { justify-content: space-between; }
-            nav { 
-                display: none; 
-                width: 100%; 
-                flex-direction: column; 
-                gap: 5px; 
-                padding-top: 10px; 
-                border-top: 1px solid rgba(255,255,255,0.2); 
-                margin-top: 10px;
+            nav {
+                display: flex !important;
+                width: 100%;
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 5px;
+                padding-top: 8px;
+                border-top: 1px solid rgba(255,255,255,0.2);
+                margin-top: 8px;
             }
-            nav.active { display: flex; }
             nav a, nav span { width: 100%; text-align: center; box-sizing: border-box; }
             header { flex-direction: row; padding: 10px 15px; }
             header .logo { font-size: 20px; }
             nav { flex-wrap: wrap; justify-content: center; gap: 5px; }
-            nav a, nav button, nav span { padding: 6px 10px; font-size: 12px; }
+            nav a, nav button, nav span { padding: 9px 14px; font-size: 14px; }
             .container { padding: 10px; }
             .grid-productos { grid-template-columns: 1fr; gap: 10px; }
             .producto { margin-bottom: 0; }
@@ -147,24 +150,27 @@
 </head>
 <body>
 <header>
-    <a href="{{ url_for('home') }}" class="logo">{{ config.nombre_sitio if config else 'MiTienda' }}</a>
+    {% set en_tienda = (vendedor is defined) and vendedor and vendedor.slug %}
+    <a href="{{ '/' + vendedor.slug if en_tienda else url_for('home') }}" class="logo">{{ config.nombre_sitio if config else 'MiTienda' }}</a>
     <button class="menu-toggle" onclick="toggleMenu()">☰</button>
     <nav id="main-nav">
         {% if session.usuario_id %}
             <span class="nav-user">Hola, {{ session.nombre }}</span>
+            <a href="{{ url_for('home') }}">🏪 Ir a la Tienda</a>
             {% if session.rol == 'admin' %}
-                <a href="{{ url_for('admin_panel') }}">Admin</a>
+                <a href="{{ url_for('admin_panel') }}">🛠️ Admin</a>
+                <a href="{{ url_for('cambiar_password') }}">🔑 Cambiar Clave</a>
+                <a href="{{ url_for('logout') }}">🚪 Salir</a>
             {% elif session.rol == 'vendedor' %}
-                <a href="{{ url_for('vendedor_panel') }}">Mi Tienda</a>
+                <a href="{{ url_for('vendedor_panel') }}">📦 Mi Panel</a>
+                <a href="{{ url_for('cambiar_password') }}">🔑 Cambiar Clave</a>
+                <a href="{{ url_for('logout') }}">🚪 Salir</a>
             {% else %}
-                <a href="{{ url_for('carrito') }}">Carrito ({{ session.carrito|length if session.carrito else 0 }})</a>
-                <a href="{{ url_for('mis_pedidos') }}">Mis Pedidos</a>
-                {% endif %}
-            <a href="{{ url_for('logout') }}">Salir</a>
-        {% else %}
-            <a href="{{ url_for('login') }}">Iniciar Sesion</a>
-            <a href="{{ url_for('registro') }}">Registrarse</a>
+                <a href="{{ url_for('mis_pedidos') }}">🧾 Mis Pedidos</a>
+                <a href="{{ url_for('logout') }}">🚪 Salir</a>
+            {% endif %}
         {% endif %}
+        <a href="{{ url_for('carrito') }}">🛒 Carrito (<span id="nav-carrito-num">{{ session.carrito|length if session.carrito else 0 }}</span>)</a>
     </nav>
 </header>
 <script>
@@ -177,5 +183,30 @@ function toggleMenu() {
 <div class="container">
     {% block content %}{% endblock %}
 </div>
+
+<div id="toast-carrito" style="display:none;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#28a745;color:white;padding:12px 22px;border-radius:30px;font-weight:bold;z-index:9999;box-shadow:0 4px 15px rgba(0,0,0,0.3);"></div>
+<script>
+// Agregar al carrito sin abandonar la pagina.
+document.addEventListener('submit', function(e) {
+    var f = e.target;
+    if (!f || !f.getAttribute) return;
+    var acc = f.getAttribute('action') || '';
+    if (acc.indexOf('agregar_carrito') === -1) return;
+    e.preventDefault();
+    fetch(f.action, { method: 'POST', body: new FormData(f), headers: { 'X-Requested-With': 'fetch' } })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            var num = document.getElementById('nav-carrito-num');
+            if (num && d && typeof d.count !== 'undefined') num.textContent = d.count;
+            var t = document.getElementById('toast-carrito');
+            if (t) {
+                t.textContent = (d && d.ok) ? '\u2713 Agregado al carrito' : 'No se pudo agregar';
+                t.style.display = 'block';
+                setTimeout(function() { t.style.display = 'none'; }, 1800);
+            }
+        })
+        .catch(function() { f.submit(); });
+}, true);
+</script>
 </body>
 </html>

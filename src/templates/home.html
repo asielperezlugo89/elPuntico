@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}{{ config.nombre_sitio if config }}{% endblock %}
+
+{% block content %}
+{% if config.mostrar_banner == '1' and config.banner_principal %}
+<div class="banner" style="margin-bottom:20px;">
+    <img src="{{ config.banner_principal }}" style="width:100%;border-radius:10px;" onerror="this.style.display='none'">
+</div>
+{% endif %}
+
+<p style="text-align:center;color:#666;margin-bottom:20px;">Elige una tienda, entra y haz tu pedido. Se envia por WhatsApp al vendedor, sin necesidad de crear cuenta.</p>
+
+<div class="buscador">
+    <form method="GET">
+        <input type="text" name="buscar" placeholder="Buscar tienda por nombre o lugar..." value="{{ buscar }}">
+        <button type="submit">Buscar</button>
+    </form>
+</div>
+
+<h2 style="margin-bottom:15px;">{% if buscar %}Tiendas encontradas{% else %}Todas las tiendas{% endif %}</h2>
+
+<div class="grid-tiendas">
+    {% for t in tiendas %}
+    <a href="/{{ t.slug }}" class="tienda-card">
+        {% if t.imagen_tienda %}
+        <img src="{{ t.imagen_tienda }}" alt="{{ t.tienda_nombre or t.nombre }}" class="tienda-avatar tienda-foto" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+        <div class="tienda-avatar" style="display:none;">{{ (t.tienda_nombre or t.nombre)[:1]|upper }}</div>
+        {% else %}
+        <div class="tienda-avatar">{{ (t.tienda_nombre or t.nombre)[:1]|upper }}</div>
+        {% endif %}
+        <div class="tienda-nombre">{{ t.tienda_nombre or t.nombre }}</div>
+        {% if t.direccion %}<div class="tienda-dato">📍 {{ t.direccion }}</div>{% endif %}
+        <div class="tienda-dato">📦 {{ t.num_productos }} producto{{ 's' if t.num_productos != 1 }}</div>
+        {% if t.precioDelivery and t.precioDelivery > 0 %}
+            <div class="tienda-dato">🚚 Envío {{ config.simbolo_moneda }}{{ t.precioDelivery }}{% if t.entregaGratis > 0 %} · gratis desde {{ config.simbolo_moneda }}{{ t.entregaGratis }}{% endif %}</div>
+        {% else %}
+            <div class="tienda-dato">🚚 Sin envío</div>
+        {% endif %}
+        <span class="tienda-entrar">Entrar a la tienda →</span>
+    </a>
+    {% else %}
+    <p style="grid-column:1/-1;text-align:center;color:#666;padding:40px;">No hay tiendas disponibles todavia.</p>
+    {% endfor %}
+</div>
+<style>
+.grid-tiendas { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
+.tienda-card { background: white; border-radius: 12px; padding: 25px 20px; text-align: center; text-decoration: none; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border: 2px solid transparent; transition: transform .15s, border-color .15s; display: block; color: inherit; }
+.tienda-card:hover { transform: translateY(-4px); border-color: {{ config.color_primario if config else '#ff9900' }}; }
+.tienda-avatar { width: 64px; height: 64px; margin: 0 auto 12px; border-radius: 50%; background: linear-gradient(135deg, {{ config.color_secundario if config else '#667eea' }}, {{ config.color_primario if config else '#ff9900' }}); color: white; font-size: 28px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+.tienda-foto { object-fit: cover; background: white; border: 2px solid {{ config.color_primario if config else '#ff9900' }}; }
+.tienda-nombre { font-weight: bold; font-size: 18px; margin-bottom: 8px; color: {{ config.color_texto if config else '#333' }}; }
+.tienda-dato { color: #666; font-size: 13px; margin-bottom: 4px; }
+.tienda-entrar { display: inline-block; margin-top: 12px; color: {{ config.color_primario if config else '#ff9900' }}; font-weight: bold; font-size: 14px; }
+@media (max-width: 480px) { .grid-tiendas { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}

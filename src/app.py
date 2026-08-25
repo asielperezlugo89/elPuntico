@@ -1,8 +1,12 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, g, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, g, send_from_directory, abort
 import sqlite3
 import os
 import hashlib
 import re
+import ssl
+import unicodedata
+from datetime import date as _dt_date, datetime as _dt_datetime
+from urllib.parse import quote as url_quote
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
@@ -12,6 +16,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 IS_PRODUCTION = os.environ.get('PUNTICO_ENV', '').lower() == 'production' or os.environ.get('RENDER') == 'true'
 DB_NAME = os.environ.get('DATABASE_PATH', os.path.join(BASE_DIR, 'mitienda.db'))
 IMG_FOLDER = os.environ.get('IMG_FOLDER', os.path.join(BASE_DIR, 'img'))
+# Backend de datos: MySQL gestionado cuando Wasmer inyecta DB_*; SQLite para desarrollo local.
+DB_BACKEND = 'mysql' if os.environ.get('DB_HOST') else 'sqlite'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'}
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-me')
 app.config.update(
@@ -27,22 +33,105 @@ def ensure_runtime_dirs():
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def generar_slug(db_conn, texto, exclude_id=None):
+    """Slug de tienda a partir del nombre: 'La Flor' -> 'la-flor'."""
+    base = unicodedata.normalize('NFKD', (texto or 'tienda')).encode('ascii', 'ignore').decode('ascii')
+    base = re.sub(r'[^a-zA-Z0-9]+', '-', base).strip('-').lower() or 'tienda'
+    slug = base
+    n = 2
+    while True:
+        if exclude_id:
+            row = db_conn.execute("SELECT id FROM usuarios WHERE slug = ? AND id != ?", (slug, exclude_id)).fetchone()
+        else:
+            row = db_conn.execute("SELECT id FROM usuarios WHERE slug = ?", (slug,)).fetchone()
+        if not row:
+            return slug
+        slug = f"{base}-{n}"
+        n += 1
+
 def hash_password(password):
     return generate_password_hash(password)
 
 def check_password(password, hashed):
     if not hashed:
         return False
-    # Compatibilidad con contraseñas antiguas guardadas en SHA-256 simple.
+    # Compatibilidad con contraseÃ±as antiguas guardadas en SHA-256 simple.
     if re.fullmatch(r'[a-f0-9]{64}', hashed):
         return hashlib.sha256(password.encode()).hexdigest() == hashed
     return check_password_hash(hashed, password)
 
+def _norm_row(row):
+    """Convierte datetime/date a texto para igualar el comportamiento de sqlite3."""
+    if isinstance(row, dict):
+        return {
+            k: (v.strftime('%Y-%m-%d %H:%M:%S') if isinstance(v, (_dt_datetime, _dt_date)) else v)
+            for k, v in row.items()
+        }
+    return row
+
+
+class _MyCursorProxy:
+    """Cursor que normaliza filas al leerlas."""
+    def __init__(self, cur):
+        self._cur = cur
+
+    def __getattr__(self, name):
+        return getattr(self._cur, name)
+
+    def fetchone(self):
+        r = self._cur.fetchone()
+        return _norm_row(r) if r is not None else None
+
+    def fetchall(self):
+        return [_norm_row(r) for r in self._cur.fetchall()]
+
+
+class _MySQLConn:
+    """Adaptador minimo: expone la API de sqlite3 (placeholders ?) sobre pymysql."""
+    def __init__(self, conn):
+        self._conn = conn
+
+    def execute(self, query, params=()):
+        cur = self._conn.cursor()
+        cur.execute(query.replace('?', '%s'), params)
+        return _MyCursorProxy(cur)
+
+    def commit(self):
+        self._conn.commit()
+
+    def close(self):
+        try:
+            self._conn.close()
+        except Exception:
+            pass
+
+
+def _mysql_connect():
+    import pymysql
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False          # TLS activo; la CA de Wasmer es privada
+    ctx.verify_mode = ssl.CERT_NONE
+    return pymysql.connect(
+        host=os.environ['DB_HOST'],
+        port=int(os.environ.get('DB_PORT', '3306')),
+        user=os.environ['DB_USERNAME'],
+        password=os.environ['DB_PASSWORD'],
+        database=os.environ['DB_NAME'],
+        charset='utf8mb4',
+        autocommit=False,
+        cursorclass=pymysql.cursors.DictCursor,
+        ssl=ctx,
+    )
+
+
 def get_db():
     if 'db' not in g:
-        g.db = sqlite3.connect(DB_NAME)
-        g.db.row_factory = sqlite3.Row
-        g.db.execute("PRAGMA foreign_keys = ON")
+        if DB_BACKEND == 'mysql':
+            g.db = _MySQLConn(_mysql_connect())
+        else:
+            g.db = sqlite3.connect(DB_NAME)
+            g.db.row_factory = sqlite3.Row
+            g.db.execute("PRAGMA foreign_keys = ON")
     return g.db
 
 def get_config(key=None):
@@ -61,72 +150,146 @@ def close_db(error):
 
 def init_db():
     ensure_runtime_dirs()
-    conn = sqlite3.connect(DB_NAME)
+    is_mysql = DB_BACKEND == 'mysql'
+    conn = _mysql_connect() if is_mysql else sqlite3.connect(DB_NAME)
     c = conn.cursor()
-    
-    c.execute('''CREATE TABLE IF NOT EXISTS usuarios (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        nombre TEXT NOT NULL,
-        telefono TEXT,
-        direccion TEXT,
-        rol TEXT DEFAULT 'cliente',
-        precioDelivery INTEGER DEFAULT 0,
-        entregaGratis INTEGER DEFAULT 0,
-        solicitud_vendedor INTEGER DEFAULT 0,
-        activo INTEGER DEFAULT 1,
-        fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP
-    )''')
-    
-    c.execute('''CREATE TABLE IF NOT EXISTS productos (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        vendedor_id INTEGER NOT NULL,
-        nombre TEXT NOT NULL,
-        descripcion TEXT,
-        precio REAL NOT NULL,
-        stock INTEGER DEFAULT 0,
-        imagen TEXT,
-        categoria TEXT,
-        activo INTEGER DEFAULT 1,
-        FOREIGN KEY (vendedor_id) REFERENCES usuarios(id)
-    )''')
-    
-    c.execute('''CREATE TABLE IF NOT EXISTS pedidos (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        cliente_id INTEGER NOT NULL,
-        vendedor_id INTEGER NOT NULL,
-        estado TEXT DEFAULT 'pendiente',
-        total REAL NOT NULL,
-        delivery INTEGER DEFAULT 0,
-        observaciones TEXT,
-        fecha_pedido DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (cliente_id) REFERENCES usuarios(id),
-        FOREIGN KEY (vendedor_id) REFERENCES usuarios(id)
-    )''')
-    
-    c.execute('''CREATE TABLE IF NOT EXISTS pedido_items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        pedido_id INTEGER NOT NULL,
-        producto_id INTEGER NOT NULL,
-        cantidad INTEGER NOT NULL,
-        precio REAL NOT NULL,
-        FOREIGN KEY (pedido_id) REFERENCES pedidos(id),
-        FOREIGN KEY (producto_id) REFERENCES productos(id)
-    )''')
-    
-    c.execute('''CREATE TABLE IF NOT EXISTS categorias (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nombre TEXT NOT NULL,
-        subcategoria TEXT,
-        UNIQUE(nombre, subcategoria)
-    )''')
-    
-    c.execute('''CREATE TABLE IF NOT EXISTS config (
-        clave TEXT PRIMARY KEY,
-        valor TEXT
-    )''')
-    
+
+    def q(sql):
+        return sql.replace('?', '%s') if is_mysql else sql
+
+    if is_mysql:
+        c.execute('''CREATE TABLE IF NOT EXISTS usuarios (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            email VARCHAR(190) UNIQUE NOT NULL,
+            password VARCHAR(255) NOT NULL,
+            nombre VARCHAR(190) NOT NULL,
+            telefono VARCHAR(255),
+            direccion TEXT,
+            rol VARCHAR(20) DEFAULT 'cliente',
+            slug VARCHAR(190) UNIQUE,
+            tienda_nombre VARCHAR(190),
+            imagen_tienda TEXT,
+            precioDelivery INT DEFAULT 0,
+            entregaGratis INT DEFAULT 0,
+            solicitud_vendedor INT DEFAULT 0,
+            activo INT DEFAULT 1,
+            fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4''')
+
+        c.execute('''CREATE TABLE IF NOT EXISTS productos (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            vendedor_id INT NOT NULL,
+            nombre VARCHAR(190) NOT NULL,
+            descripcion TEXT,
+            precio DOUBLE NOT NULL,
+            stock INT DEFAULT 0,
+            imagen TEXT,
+            categoria VARCHAR(190),
+            activo INT DEFAULT 1,
+            FOREIGN KEY (vendedor_id) REFERENCES usuarios(id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4''')
+
+        c.execute('''CREATE TABLE IF NOT EXISTS pedidos (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            cliente_id INT NOT NULL,
+            vendedor_id INT NOT NULL,
+            estado VARCHAR(30) DEFAULT 'pendiente',
+            total DOUBLE NOT NULL,
+            delivery INT DEFAULT 0,
+            observaciones TEXT,
+            fecha_pedido DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (cliente_id) REFERENCES usuarios(id),
+            FOREIGN KEY (vendedor_id) REFERENCES usuarios(id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4''')
+
+        c.execute('''CREATE TABLE IF NOT EXISTS pedido_items (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            pedido_id INT NOT NULL,
+            producto_id INT NOT NULL,
+            cantidad INT NOT NULL,
+            precio DOUBLE NOT NULL,
+            FOREIGN KEY (pedido_id) REFERENCES pedidos(id),
+            FOREIGN KEY (producto_id) REFERENCES productos(id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4''')
+
+        c.execute('''CREATE TABLE IF NOT EXISTS categorias (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            nombre VARCHAR(190) NOT NULL,
+            subcategoria VARCHAR(190),
+            UNIQUE(nombre, subcategoria)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4''')
+
+        c.execute('''CREATE TABLE IF NOT EXISTS config (
+            clave VARCHAR(190) PRIMARY KEY,
+            valor TEXT
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4''')
+    else:
+        c.execute('''CREATE TABLE IF NOT EXISTS usuarios (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            nombre TEXT NOT NULL,
+            telefono TEXT,
+            direccion TEXT,
+            rol TEXT DEFAULT 'cliente',
+            slug TEXT UNIQUE,
+            tienda_nombre TEXT,
+            imagen_tienda TEXT,
+            precioDelivery INTEGER DEFAULT 0,
+            entregaGratis INTEGER DEFAULT 0,
+            solicitud_vendedor INTEGER DEFAULT 0,
+            activo INTEGER DEFAULT 1,
+            fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP
+        )''')
+
+        c.execute('''CREATE TABLE IF NOT EXISTS productos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            vendedor_id INTEGER NOT NULL,
+            nombre TEXT NOT NULL,
+            descripcion TEXT,
+            precio REAL NOT NULL,
+            stock INTEGER DEFAULT 0,
+            imagen TEXT,
+            categoria TEXT,
+            activo INTEGER DEFAULT 1,
+            FOREIGN KEY (vendedor_id) REFERENCES usuarios(id)
+        )''')
+
+        c.execute('''CREATE TABLE IF NOT EXISTS pedidos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cliente_id INTEGER NOT NULL,
+            vendedor_id INTEGER NOT NULL,
+            estado TEXT DEFAULT 'pendiente',
+            total REAL NOT NULL,
+            delivery INTEGER DEFAULT 0,
+            observaciones TEXT,
+            fecha_pedido DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (cliente_id) REFERENCES usuarios(id),
+            FOREIGN KEY (vendedor_id) REFERENCES usuarios(id)
+        )''')
+
+        c.execute('''CREATE TABLE IF NOT EXISTS pedido_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            pedido_id INTEGER NOT NULL,
+            producto_id INTEGER NOT NULL,
+            cantidad INTEGER NOT NULL,
+            precio REAL NOT NULL,
+            FOREIGN KEY (pedido_id) REFERENCES pedidos(id),
+            FOREIGN KEY (producto_id) REFERENCES productos(id)
+        )''')
+
+        c.execute('''CREATE TABLE IF NOT EXISTS categorias (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL,
+            subcategoria TEXT,
+            UNIQUE(nombre, subcategoria)
+        )''')
+
+        c.execute('''CREATE TABLE IF NOT EXISTS config (
+            clave TEXT PRIMARY KEY,
+            valor TEXT
+        )''')
+
     defaults = {
         'nombre_sitio': 'MiTienda',
         'color_primario': '#ff9900',
@@ -142,26 +305,29 @@ def init_db():
         'email_contacto': '',
         'direccion_sitio': '',
     }
+    insert_default = ("INSERT IGNORE INTO config (clave, valor) VALUES (%s, %s)" if is_mysql
+                      else "INSERT OR IGNORE INTO config (clave, valor) VALUES (?, ?)")
     for k, v in defaults.items():
-        c.execute("INSERT OR IGNORE INTO config (clave, valor) VALUES (?, ?)", (k, v))
-    
+        c.execute(insert_default, (k, v))
+
     c.execute("SELECT COUNT(*) FROM usuarios WHERE rol = 'admin'")
-    if c.fetchone()[0] == 0:
+    row = c.fetchone()
+    admin_count = row[0] if not is_mysql else list(row.values())[0]
+    if admin_count == 0:
         admin_email = os.environ.get('DEFAULT_ADMIN_EMAIL', 'admin@elpuntico.com')
         admin_password = os.environ.get('DEFAULT_ADMIN_PASSWORD')
         if not admin_password and not IS_PRODUCTION:
             admin_password = 'admin'
         if admin_password:
-            c.execute(
-                "INSERT INTO usuarios (email, password, nombre, telefono, direccion, rol) VALUES (?, ?, ?, ?, ?, ?)",
-                (admin_email, hash_password(admin_password), 'Admin Principal', '0000', 'Sistema', 'admin')
-            )
+            c.execute(q(
+                "INSERT INTO usuarios (email, password, nombre, telefono, direccion, rol) VALUES (?, ?, ?, ?, ?, ?)"
+            ), (admin_email, hash_password(admin_password), 'Admin Principal', '0000', 'Sistema', 'admin'))
             print(f"Usuario admin creado: {admin_email}")
         elif IS_PRODUCTION:
             print("No se creo admin por defecto: define DEFAULT_ADMIN_PASSWORD en produccion.")
-    
+
     # Sin categorias por defecto - el admin las agrega
-    
+
     conn.commit()
     conn.close()
 
@@ -189,25 +355,21 @@ def rol_required(roles):
 def home():
     db = get_db()
     buscar = request.args.get('buscar', '')
-    categoria = request.args.get('categoria', '')
     
-    sql = "SELECT p.*, u.nombre as vendedor_nombre, u.direccion as vendedor_direccion, u.precioDelivery, u.entregaGratis FROM productos p JOIN usuarios u ON p.vendedor_id = u.id WHERE p.activo = 1 AND p.stock > 0"
+    # Portada = directorio de tiendas. Los productos viven dentro de cada tienda (/slug).
+    sql = """SELECT u.*, 
+             (SELECT COUNT(*) FROM productos p WHERE p.vendedor_id = u.id AND p.activo = 1 AND p.stock > 0) AS num_productos
+             FROM usuarios u WHERE u.rol = 'vendedor' AND u.activo = 1"""
     params = []
-    
     if buscar:
-        sql += " AND (p.nombre LIKE ? OR p.descripcion LIKE ?)"
+        sql += " AND (u.nombre LIKE ? OR u.direccion LIKE ?)"
         params.extend([f'%{buscar}%', f'%{buscar}%'])
-    if categoria:
-        sql += " AND p.categoria = ?"
-        params.append(categoria)
+    sql += " ORDER BY u.nombre"
     
-    categorias = db.execute("SELECT * FROM categorias ORDER BY nombre, subcategoria").fetchall()
-    sql += " ORDER BY p.id DESC"
-    
-    productos = db.execute(sql, params).fetchall()
+    tiendas = db.execute(sql, params).fetchall()
     config = get_config()
     
-    return render_template('home.html', productos=productos, categorias=categorias, buscar=buscar, categoria=categoria, config=config)
+    return render_template('home.html', tiendas=tiendas, buscar=buscar, config=config)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -251,7 +413,7 @@ def registro():
         
         db = get_db()
         if db.execute("SELECT id FROM usuarios WHERE email = ?", (email,)).fetchone():
-            return render_template('registro.html', error="El email ya está registrado", config=get_config())
+            return render_template('registro.html', error="El email ya estÃ¡ registrado", config=get_config())
         
         db.execute("INSERT INTO usuarios (email, password, nombre, telefono, direccion, rol) VALUES (?, ?, ?, ?, ?, 'cliente')",
             (email, hash_password(password), nombre, telefono, direccion))
@@ -272,15 +434,35 @@ def logout():
     return redirect(url_for('home'))
 
 
+@app.route('/cambiar_password', methods=['GET', 'POST'])
+@login_required
+def cambiar_password():
+    error = None
+    ok = None
+    if request.method == 'POST':
+        actual = request.form.get('actual', '')
+        nueva = request.form.get('nueva', '')
+        repetir = request.form.get('repetir', '')
+        db = get_db()
+        user = db.execute("SELECT * FROM usuarios WHERE id = ?", (session['usuario_id'],)).fetchone()
+        if not user or not check_password(actual, user['password']):
+            error = "La contrasena actual es incorrecta"
+        elif len(nueva) < 4:
+            error = "La nueva contrasena debe tener al menos 4 caracteres"
+        elif nueva != repetir:
+            error = "Las contrasenas nuevas no coinciden"
+        else:
+            db.execute("UPDATE usuarios SET password = ? WHERE id = ?", (hash_password(nueva), user['id']))
+            db.commit()
+            ok = "Contrasena actualizada correctamente"
+    return render_template('cambiar_password.html', error=error, ok=ok, config=get_config())
+
+
 
 @app.route('/agregar_carrito', methods=['POST'])
-@login_required
 def agregar_carrito():
-    if session.get('rol') != 'cliente':
-        return redirect(url_for('login'))
-    
     producto_id = int(request.form.get('producto_id', 0) or 0)
-    cantidad = int(request.form.get('cantidad', 1) or 1)
+    cantidad = max(1, int(request.form.get('cantidad', 1) or 1))
     
     if 'carrito' not in session:
         session['carrito'] = []
@@ -292,6 +474,7 @@ def agregar_carrito():
             existe = True
             break
     
+    agregado = existe
     if not existe:
         db = get_db()
         producto = db.execute("SELECT * FROM productos WHERE id = ?", (producto_id,)).fetchone()
@@ -304,12 +487,18 @@ def agregar_carrito():
                 'cantidad': cantidad,
                 'stock': producto['stock']
             })
+            agregado = True
     
     session.modified = True
-    return redirect(url_for('carrito'))
+    
+    # Desde la web (fetch): respuesta JSON sin recargar la pagina.
+    if request.headers.get('X-Requested-With') == 'fetch':
+        return jsonify({'ok': agregado, 'count': len(session['carrito'])})
+    
+    # Fallback clasico: volver a la pagina desde donde se agrego.
+    return redirect(request.referrer or url_for('home'))
 
 @app.route('/quitar_carrito/<int:index>')
-@login_required
 def quitar_carrito(index):
     if 'carrito' in session and 0 <= index < len(session['carrito']):
         session['carrito'].pop(index)
@@ -317,34 +506,45 @@ def quitar_carrito(index):
     return redirect(url_for('carrito'))
 
 @app.route('/carrito')
-@login_required
 def carrito():
-    if session.get('rol') != 'cliente':
-        return redirect(url_for('home'))
-    
-    return render_template('carrito.html', config=get_config())
+    cliente = None
+    if session.get('usuario_id'):
+        db = get_db()
+        cliente = db.execute("SELECT nombre, telefono, direccion FROM usuarios WHERE id = ?", (session['usuario_id'],)).fetchone()
+    return render_template('carrito.html', cliente=cliente, config=get_config())
 
 @app.route('/checkout', methods=['POST'])
-@login_required
 def checkout():
-    if session.get('rol') != 'cliente' or 'carrito' not in session:
-        return redirect(url_for('home'))
-    
-    if not session['carrito']:
+    if not session.get('carrito'):
         return redirect(url_for('carrito'))
     
-    db = get_db()
     observaciones = request.form.get('observaciones', '')
+    
+    db = get_db()
+    config = get_config()
+    
+    # Cliente sin registro: si esta logueado se usa su cuenta; si no,
+    # todos los pedidos de invitados cuelgan de una cuenta compartida.
+    cliente = None
+    if session.get('usuario_id') and session.get('rol') == 'cliente':
+        cliente = db.execute("SELECT * FROM usuarios WHERE id = ?", (session['usuario_id'],)).fetchone()
+    if not cliente:
+        cliente = db.execute("SELECT * FROM usuarios WHERE email = ? LIMIT 1", ('invitado@puntico.local',)).fetchone()
+        if not cliente:
+            db.execute("INSERT INTO usuarios (email, password, nombre, telefono, direccion, rol) VALUES (?, ?, ?, ?, ?, 'cliente')",
+                ('invitado@puntico.local', hash_password(hashlib.md5(os.urandom(16)).hexdigest()), 'Cliente WhatsApp', '', ''))
+            cliente = db.execute("SELECT * FROM usuarios WHERE email = ?", ('invitado@puntico.local',)).fetchone()
     
     from collections import defaultdict
     by_vendedor = defaultdict(list)
     for item in session['carrito']:
         by_vendedor[item['vendedor_id']].append(item)
     
+    segmentos = []
     for vendedor_id, items in by_vendedor.items():
         total = sum(i['precio'] * i['cantidad'] for i in items)
         
-        vendedor = db.execute("SELECT precioDelivery, entregaGratis FROM usuarios WHERE id = ?", (vendedor_id,)).fetchone()
+        vendedor = db.execute("SELECT nombre, tienda_nombre, telefono, precioDelivery, entregaGratis FROM usuarios WHERE id = ?", (vendedor_id,)).fetchone()
         delivery = 0
         if vendedor and vendedor['precioDelivery'] > 0:
             if vendedor['entregaGratis'] > 0 and total >= vendedor['entregaGratis']:
@@ -353,19 +553,71 @@ def checkout():
                 delivery = vendedor['precioDelivery']
         
         cursor = db.execute("INSERT INTO pedidos (cliente_id, vendedor_id, total, delivery, observaciones) VALUES (?, ?, ?, ?, ?)",
-            (session['usuario_id'], vendedor_id, total, delivery, observaciones))
+            (cliente['id'], vendedor_id, total, delivery, observaciones))
         pedido_id = cursor.lastrowid
         
+        lineas = []
         for item in items:
             db.execute("INSERT INTO pedido_items (pedido_id, producto_id, cantidad, precio) VALUES (?, ?, ?, ?)",
                 (pedido_id, item['producto_id'], item['cantidad'], item['precio']))
             db.execute("UPDATE productos SET stock = stock - ? WHERE id = ?", (item['cantidad'], item['producto_id']))
+            lineas.append(f"- {item['cantidad']}x {item['nombre']} (${item['precio'] * item['cantidad']:.2f})")
+        
+        total_segmento = total + delivery
+        nombre_tienda = (vendedor['tienda_nombre'] if vendedor and vendedor['tienda_nombre'] else (vendedor['nombre'] if vendedor else 'Vendedor'))
+        msg = f"Hola {nombre_tienda}! Pedido #{pedido_id} en {config['nombre_sitio']}:\n"
+        msg += "\n".join(lineas)
+        msg += f"\n\nEnvío: ${delivery:.2f}\nTotal: ${total_segmento:.2f}"
+        if observaciones:
+            msg += f"\nObservaciones: {observaciones}"
+        msg += "\n(Referencia del pedido: #" + str(pedido_id) + ")"
+        
+        wa_tel = ''.join(ch for ch in (vendedor['telefono'] or '') if ch.isdigit()) if vendedor else ''
+        segmentos.append({
+            'pedido_id': pedido_id,
+            'vendedor': nombre_tienda,
+            'total': total_segmento,
+            'wa_link': f"https://wa.me/{wa_tel}?text={url_quote(msg)}" if len(wa_tel) >= 8 else None,
+        })
     
     db.commit()
     session['carrito'] = []
+    
+    # Datos para la pantalla de confirmacion y retorno automatico a la tienda.
+    tienda_slug = None
+    tienda_nombre = None
+    if len(segmentos) == 1:
+        vinfo = db.execute("SELECT slug, nombre FROM usuarios WHERE id = ?", (list(by_vendedor.keys())[0],)).fetchone()
+        if vinfo:
+            tienda_slug = vinfo['slug']
+            tienda_nombre = vinfo['nombre']
+    session['ultimo_pedido'] = {'segmentos': segmentos, 'tienda_slug': tienda_slug, 'tienda_nombre': tienda_nombre}
     session.modified = True
     
-    return render_template('checkout_ok.html', config=get_config())
+    # Flujo AJAX desde el carrito: el mismo toque del usuario abre WhatsApp
+    # (sin bloqueo de popups) y la pagina vuelve sola a la tienda.
+    if request.headers.get('X-Requested-With') == 'fetch':
+        return jsonify({
+            'ok': True,
+            'wa_url': segmentos[0]['wa_link'] if len(segmentos) == 1 else None,
+            'multi': [s for s in segmentos] if len(segmentos) > 1 else [],
+            'tienda_slug': tienda_slug,
+            'tienda_nombre': tienda_nombre,
+        })
+    
+    return redirect(url_for('pedido_confirmado'))
+
+@app.route('/pedido-confirmado')
+def pedido_confirmado():
+    datos = session.pop('ultimo_pedido', None)
+    session.modified = True
+    if not datos:
+        return redirect(url_for('home'))
+    return render_template('pedido_confirmado.html',
+        segmentos=datos.get('segmentos', []),
+        tienda_slug=datos.get('tienda_slug'),
+        tienda_nombre=datos.get('tienda_nombre'),
+        config=get_config())
 
 @app.route('/mis_pedidos')
 @login_required
@@ -434,6 +686,9 @@ def admin_editar_usuario(user_id):
     
     db.execute("UPDATE usuarios SET nombre = ?, email = ?, telefono = ?, direccion = ?, rol = ?, activo = ? WHERE id = ?",
         (nombre, email, telefono, direccion, rol, activo, user_id))
+    password_nueva = request.form.get('password_nueva', '').strip()
+    if password_nueva:
+        db.execute("UPDATE usuarios SET password = ? WHERE id = ?", (hash_password(password_nueva), user_id))
     db.commit()
     return redirect(url_for('admin_panel'))
 
@@ -451,8 +706,11 @@ def admin_crear_usuario():
     if db.execute("SELECT id FROM usuarios WHERE email = ?", (email,)).fetchone():
         return redirect(url_for('admin_panel'))
     
-    db.execute("INSERT INTO usuarios (email, password, nombre, telefono, direccion, rol) VALUES (?, ?, ?, ?, ?, ?)",
-        (email, hash_password(password), nombre, telefono, direccion, rol))
+    db.execute("INSERT INTO usuarios (email, password, nombre, telefono, direccion, rol, tienda_nombre) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (email, hash_password(password), nombre, telefono, direccion, rol, nombre if rol == 'vendedor' else None))
+    if rol == 'vendedor':
+        slug = generar_slug(db, nombre)
+        db.execute("UPDATE usuarios SET slug = ? WHERE email = ?", (slug, email))
     db.commit()
     return redirect(url_for('admin_panel'))
 
@@ -498,10 +756,25 @@ def admin_eliminar_producto(prod_id):
     db.commit()
     return redirect(url_for('admin_panel'))
 
+def _ajustar_stock_pedido(db, pedido_id, devolver):
+    """Devuelve (True) o vuelve a descontar (False) el stock de los items de un pedido."""
+    items = db.execute("SELECT producto_id, cantidad FROM pedido_items WHERE pedido_id = ?", (pedido_id,)).fetchall()
+    for it in items:
+        if devolver:
+            db.execute("UPDATE productos SET stock = stock + ? WHERE id = ?", (it['cantidad'], it['producto_id']))
+        else:
+            db.execute("UPDATE productos SET stock = stock - ? WHERE id = ?", (it['cantidad'], it['producto_id']))
+
 @app.route('/admin/pedido/<int:pedido_id>/<string:estado>')
 @rol_required(['admin'])
 def admin_cambiar_pedido(pedido_id, estado):
     db = get_db()
+    pedido = db.execute("SELECT estado FROM pedidos WHERE id = ?", (pedido_id,)).fetchone()
+    if pedido and pedido['estado'] != estado:
+        if estado == 'cancelado':
+            _ajustar_stock_pedido(db, pedido_id, True)
+        elif pedido['estado'] == 'cancelado':
+            _ajustar_stock_pedido(db, pedido_id, False)
     db.execute("UPDATE pedidos SET estado = ? WHERE id = ?", (estado, pedido_id))
     db.commit()
     return redirect(url_for('admin_panel'))
@@ -540,8 +813,9 @@ def admin_agregar_categoria():
 
 @app.route('/admin/categoria/<string:cat_id>/eliminar')
 @rol_required(['admin'])
-def admin_eliminar_categoria(cat_id, sub_id=''):
+def admin_eliminar_categoria(cat_id):
     db = get_db()
+    sub_id = request.args.get('sub', '')
     
     # Si tiene sub o es "_none_", eliminar solo esa sub
     if sub_id and sub_id != '':
@@ -574,7 +848,8 @@ def vendedor_panel():
     
     categorias = db.execute("SELECT nombre as categoria, subcategoria FROM categorias ORDER BY nombre, subcategoria").fetchall()
     
-    return render_template('vendedor.html', productos=productos, pedidos=pedidos, usuario=usuario, categorias=categorias)
+    mi_url = request.url_root.rstrip('/') + '/' + (usuario['slug'] or '')
+    return render_template('vendedor.html', productos=productos, pedidos=pedidos, usuario=usuario, categorias=categorias, mi_url=mi_url)
 
 @app.route('/vendedor/producto/agregar', methods=['POST'])
 @rol_required(['vendedor'])
@@ -627,11 +902,34 @@ def vendedor_eliminar_producto(prod_id):
 @rol_required(['vendedor'])
 def vendedor_config():
     db = get_db()
-    db.execute("""UPDATE usuarios SET precioDelivery = ?, entregaGratis = ?, nombre = ?, telefono = ?, direccion = ? 
-        WHERE id = ?""",
-        (int(request.form.get('precioDelivery') or 0), int(request.form.get('entregaGratis') or 0), 
-         request.form.get('nombre', ''), request.form.get('telefono', ''), request.form.get('direccion', ''),
-         session['usuario_id']))
+    uid = session['usuario_id']
+    accion = request.form.get('accion', '')
+    
+    if accion == 'tienda':
+        # Solo toca datos de la tienda: nombre comercial y foto/logo.
+        logo_path = None
+        f = request.files.get('logo_file')
+        if f and f.filename and allowed_file(f.filename):
+            ext = f.filename.rsplit('.', 1)[1].lower()
+            fname = f"t{uid}_{hashlib.md5(os.urandom(8)).hexdigest()[:8]}.{ext}"
+            f.save(os.path.join(IMG_FOLDER, fname))
+            logo_path = f"/img/{fname}"
+        sets = ["tienda_nombre = ?"]
+        params = [(request.form.get('tienda_nombre', '') or '').strip()]
+        nueva_img = logo_path or request.form.get('imagen_tienda', '').strip()
+        if nueva_img:
+            sets.append("imagen_tienda = ?")
+            params.append(nueva_img)
+        params.append(uid)
+        db.execute(f"UPDATE usuarios SET {', '.join(sets)} WHERE id = ?", tuple(params))
+    elif accion == 'delivery':
+        # Solo toca configuracion de delivery.
+        db.execute("UPDATE usuarios SET precioDelivery = ?, entregaGratis = ? WHERE id = ?",
+            (int(request.form.get('precioDelivery') or 0), int(request.form.get('entregaGratis') or 0), uid))
+    else:
+        # Solo toca el perfil personal (nombre, telefono, direccion).
+        db.execute("UPDATE usuarios SET nombre = ?, telefono = ?, direccion = ? WHERE id = ?",
+            (request.form.get('nombre', ''), request.form.get('telefono', ''), request.form.get('direccion', ''), uid))
     db.commit()
     return redirect(url_for('vendedor_panel'))
 
@@ -639,6 +937,12 @@ def vendedor_config():
 @rol_required(['vendedor'])
 def vendedor_cambiar_pedido(pedido_id, estado):
     db = get_db()
+    pedido = db.execute("SELECT estado FROM pedidos WHERE id = ? AND vendedor_id = ?", (pedido_id, session['usuario_id'])).fetchone()
+    if pedido and pedido['estado'] != estado:
+        if estado == 'cancelado':
+            _ajustar_stock_pedido(db, pedido_id, True)
+        elif pedido['estado'] == 'cancelado':
+            _ajustar_stock_pedido(db, pedido_id, False)
     db.execute("UPDATE pedidos SET estado = ? WHERE id = ? AND vendedor_id = ?", 
         (estado, pedido_id, session['usuario_id']))
     db.commit()
@@ -656,7 +960,7 @@ def health():
 
 @app.route('/img/<path:filename>')
 def img_static(filename):
-    return send_from_directory('img', filename)
+    return send_from_directory(IMG_FOLDER, filename)
 
 @app.route('/admin/upload', methods=['POST'])
 @rol_required(['admin'])
@@ -719,8 +1023,71 @@ def upload_img():
     
     return jsonify({'success': False})
 
+# Inicializa la BD tambien cuando el servidor lo importa (p.ej. `flask --app app run`).
+# Es idempotente: CREATE TABLE IF NOT EXISTS + INSERT OR IGNORE.
+init_db()
+
+def _migrar_slugs():
+    """Anade columnas nuevas a instalaciones existentes: slug, tienda_nombre, imagen_tienda."""
+    try:
+        if DB_BACKEND == 'mysql':
+            conn = _mysql_connect()
+            cur = conn.cursor()
+            for ddl in (
+                "ALTER TABLE usuarios ADD COLUMN slug VARCHAR(190)",
+                "ALTER TABLE usuarios ADD COLUMN tienda_nombre VARCHAR(190)",
+                "ALTER TABLE usuarios ADD COLUMN imagen_tienda TEXT",
+                "CREATE UNIQUE INDEX idx_usuarios_slug ON usuarios(slug)",
+            ):
+                try:
+                    cur.execute(ddl)
+                    conn.commit()
+                except Exception:
+                    pass
+            ad = _MySQLConn(conn)
+        else:
+            conn = sqlite3.connect(DB_NAME)
+            conn.row_factory = sqlite3.Row
+            cols = [r[1] for r in conn.execute("PRAGMA table_info(usuarios)").fetchall()]
+            if 'slug' not in cols:
+                conn.execute("ALTER TABLE usuarios ADD COLUMN slug TEXT")
+            if 'tienda_nombre' not in cols:
+                conn.execute("ALTER TABLE usuarios ADD COLUMN tienda_nombre TEXT")
+            if 'imagen_tienda' not in cols:
+                conn.execute("ALTER TABLE usuarios ADD COLUMN imagen_tienda TEXT")
+            conn.commit()
+            ad = conn
+        pendientes = ad.execute("SELECT id, nombre FROM usuarios WHERE rol = 'vendedor' AND (slug IS NULL OR slug = '')").fetchall()
+        for r in pendientes:
+            slug = generar_slug(ad, r['nombre'], exclude_id=r['id'])
+            ad.execute("UPDATE usuarios SET slug = ? WHERE id = ?", (slug, r['id']))
+        sin_nombre = ad.execute("SELECT id, nombre FROM usuarios WHERE rol = 'vendedor' AND (tienda_nombre IS NULL OR tienda_nombre = '')").fetchall()
+        for r in sin_nombre:
+            ad.execute("UPDATE usuarios SET tienda_nombre = ? WHERE id = ?", (r['nombre'], r['id']))
+        if DB_BACKEND == 'mysql':
+            conn.commit()
+            conn.close()
+        else:
+            conn.commit()
+            conn.close()
+    except Exception as e:
+        print('Migracion de slugs:', e)
+
+_migrar_slugs()
+
+@app.route('/<slug>')
+def tienda_publica(slug):
+    """Tienda publica de cada vendedor: elpuntico.wasmer.app/la-flor"""
+    if slug in ('favicon.ico', 'robots.txt'):
+        abort(404)
+    db = get_db()
+    vendedor = db.execute("SELECT * FROM usuarios WHERE slug = ? AND rol = 'vendedor' AND activo = 1", (slug,)).fetchone()
+    if not vendedor:
+        abort(404)
+    productos = db.execute("SELECT * FROM productos WHERE vendedor_id = ? AND activo = 1 AND stock > 0 ORDER BY id DESC", (vendedor['id'],)).fetchall()
+    return render_template('tienda_publica.html', vendedor=vendedor, productos=productos, config=get_config())
+
 if __name__ == '__main__':
-    init_db()
     port = int(os.environ.get('PORT', 80))
     debug = os.environ.get('FLASK_DEBUG', '0') == '1'
     print("=" * 40)

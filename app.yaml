@@ -1,0 +1,42 @@
+kind: wasmer.io/App.v0
+name: elpuntico
+app_id: da_K0DIkt5UN7vM
+owner: asielperezlugo89
+package: .
+locality:
+  regions:
+  - ca-beau1
+env:
+  PUNTICO_ENV: production
+  SECRET_KEY: __SET_IN_WASMER_DASHBOARD__
+  DEFAULT_ADMIN_EMAIL: admin@elpuntico.com
+  DEFAULT_ADMIN_PASSWORD: __SET_IN_WASMER_DASHBOARD__
+  ALLOW_REMOTE_IMAGE_UPLOAD: '1'
+  IMG_FOLDER: /mnt/data/img
+capabilities:
+  database:
+    engine: mysql
+volumes:
+- name: data
+  mount: /mnt/data
+description: El Puntico - Marketplace multi-vendedor (Flask)
+annotations:
+  anybuild.run/config:
+    commands:
+      start: uvicorn src.main:app --interface=wsgi --host 0.0.0.0 --port $PORT
+    name: out
+    python_cross_platform: wasix_wasm32
+    python_database: mysql
+    python_extra_dependencies:
+    - uvicorn
+    python_extra_index_url: https://pythonindex.wasix.org/simple
+    python_framework: flask
+    python_install_inputs:
+    - requirements.txt
+    python_main_file: src/main.py
+    python_server: uvicorn
+    wsgi_application: src.main:app
+  anybuild.run/provider: python
+  anybuild.run/version: 0.27.2
+  wasmer.io/version: 7.3.0
+enableDatabase: true

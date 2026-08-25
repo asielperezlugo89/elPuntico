@@ -28,15 +28,51 @@
     </div>
     
     <form method="POST" action="{{ url_for('checkout') }}" class="carrito-checkout">
-        <h3>Datos de entrega</h3>
+        <h3>Confirmar pedido</h3>
+        <p style="color:#666;font-size:14px;margin-bottom:15px;">No necesitas cuenta ni datos: al confirmar se abrira WhatsApp y el vendedor te vera el numero.</p>
         <div class="form-group">
-            <label>Observaciones</label>
+            <label>Observaciones (opcional)</label>
             <textarea name="observaciones" rows="2" placeholder="Referencias, horario, etc."></textarea>
         </div>
         <button type="submit" class="btn btn-success" style="width:100%;padding:15px;font-size:16px;">
-            Confirmar Pedido
+            Confirmar y enviar por WhatsApp
         </button>
+        <a href="{{ url_for('home') }}" class="btn btn-secondary" style="width:100%;text-align:center;margin-top:10px;">← Seguir comprando</a>
     </form>
+    <script>
+    (function() {
+        var form = document.querySelector('.carrito-checkout');
+        if (!form) return;
+        var enviado = false;
+        form.addEventListener('submit', function(e) {
+            if (enviado) return;
+            e.preventDefault();
+            var btn = form.querySelector('button[type="submit"]');
+            if (btn) { btn.disabled = true; btn.textContent = 'Procesando...'; }
+            fetch('{{ url_for("checkout") }}', { method: 'POST', body: new FormData(form), headers: { 'X-Requested-With': 'fetch' } })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (!d || !d.ok) { window.location.href = '{{ url_for("carrito") }}'; return; }
+                    if (d.multi && d.multi.length) {
+                        // Varias tiendas: pantalla con un boton de WhatsApp por cada una.
+                        window.location.href = '{{ url_for("pedido_confirmado") }}';
+                        return;
+                    }
+                    // Una tienda: abrir WhatsApp con el mismo toque y volver a la tienda.
+                    var w = null;
+                    if (d.wa_url) {
+                        try { w = window.open(d.wa_url, '_blank'); } catch (err) {}
+                    }
+                    if (d.tienda_slug) {
+                        window.location.href = '/' + d.tienda_slug;
+                    } else {
+                        window.location.href = d.wa_url || '{{ url_for("home") }}';
+                    }
+                })
+                .catch(function() { form.submit(); });
+        });
+    })();
+    </script>
     {% endif %}
 </div>
 <style>

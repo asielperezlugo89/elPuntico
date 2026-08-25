@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}{{ vendedor.nombre }}{% endblock %}
+{% block content %}
+<div class="panel tienda-header">
+    {% if vendedor.imagen_tienda %}
+    <img src="{{ vendedor.imagen_tienda }}" alt="{{ vendedor.tienda_nombre or vendedor.nombre }}" class="tienda-avatar tienda-foto" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+    <div class="tienda-avatar" style="display:none;">{{ (vendedor.tienda_nombre or vendedor.nombre)[:1]|upper }}</div>
+    {% else %}
+    <div class="tienda-avatar">{{ (vendedor.tienda_nombre or vendedor.nombre)[:1]|upper }}</div>
+    {% endif %}
+    <div class="tienda-info">
+        <h1>{{ vendedor.tienda_nombre or vendedor.nombre }}</h1>
+        {% if vendedor.direccion %}<p>📍 {{ vendedor.direccion }}</p>{% endif %}
+        <p>🚚 Envío: {{ config.simbolo_moneda }}{{ vendedor.precioDelivery or 0 }}{% if vendedor.entregaGratis and vendedor.entregaGratis > 0 %} (gratis desde {{ config.simbolo_moneda }}{{ vendedor.entregaGratis }}){% endif %}</p>
+    </div>
+    <a href="/" class="btn btn-secondary">Ver todas las tiendas</a>
+</div>
+
+<h2 style="margin-bottom:15px;">Productos de la tienda</h2>
+{% if productos %}
+<div class="grid-productos">
+    {% for p in productos %}
+    <div class="producto">
+        <div class="producto-img">
+            {% if p.imagen %}
+                <img src="{{ p.imagen }}" alt="{{ p.nombre }}" onerror="this.parentElement.innerHTML='📦'">
+            {% else %}📦{% endif %}
+        </div>
+        <div class="producto-info">
+            <div class="producto-nombre">{{ p.nombre }}</div>
+            <div class="producto-descripcion">{{ p.descripcion }}</div>
+            <div class="producto-precio">{{ config.simbolo_moneda }}{{ "%.2f"|format(p.precio) }}</div>
+            <div class="producto-stock {{ 'bajo' if p.stock <= 3 }}">{{ p.stock }} disponibles</div>
+            <form method="POST" action="{{ url_for('agregar_carrito') }}" class="producto-acciones">
+                <input type="hidden" name="producto_id" value="{{ p.id }}">
+                <input type="number" name="cantidad" value="1" min="1" max="{{ p.stock }}">
+                <button type="submit" class="btn-agregar">Agregar</button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p style="text-align:center;padding:40px;color:#666;">Esta tienda aun no tiene productos disponibles.</p>
+{% endif %}
+<style>
+.tienda-header { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.tienda-avatar { width: 70px; height: 70px; border-radius: 50%; background: linear-gradient(135deg, {{ config.color_secundario if config else '#667eea' }}, {{ config.color_primario if config else '#ff9900' }}); color: white; font-size: 32px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+.tienda-foto { object-fit: cover; background: white; border: 2px solid {{ config.color_primario if config else '#ff9900' }}; }
+.tienda-info { flex: 1; min-width: 200px; }
+.tienda-info h1 { color: {{ config.color_texto if config else '#333' }}; margin-bottom: 5px; }
+.tienda-info p { color: #666; font-size: 14px; }
+.producto-descripcion { color: #777; font-size: 13px; margin-bottom: 8px; min-height: 18px; }
+@media (max-width: 480px) { .tienda-header { text-align: center; justify-content: center; } }
+</style>
+{% endblock %}

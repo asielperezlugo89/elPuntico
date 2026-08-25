@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% block title %}Panel Vendedor{% endblock %}
+{% block content %}
+<div class="tabs" id="tabs-panel">
+    <a href="#productos" class="tab active" data-tab="productos">📦 Productos</a>
+    <a href="#pedidos" class="tab" data-tab="pedidos">🧾 Pedidos</a>
+    <a href="#config" class="tab" data-tab="config">⚙️ Configuracion</a>
+</div>
+
+<div class="panel mi-enlace-panel">
+    <h2>🔗 Mi Tienda Online</h2>
+    <p style="color:#666;margin-bottom:10px;">Comparte este enlace con tus clientes para que compren directo de tu tienda:</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input type="text" id="mi-url-tienda" value="{{ mi_url }}" readonly style="flex:1;min-width:220px;padding:12px;border:1px solid #ddd;border-radius:8px;background:#f8f9fa;">
+        <button type="button" class="btn btn-primary" onclick="copiarMiUrl()">📋 Copiar enlace</button>
+        <a href="{{ mi_url }}" target="_blank" class="btn btn-secondary">👁️ Ver mi tienda</a>
+    </div>
+    <p id="url-copiada" style="color:#28a745;font-size:13px;display:none;margin-top:5px;">✓ Enlace copiado</p>
+</div>
+
+<div id="sec-productos" class="tab-seccion activa">
+<!-- PRODUCTOS -->
+<div class="panel" id="productos">
+    <h2>Agregar Producto</h2>
+    <form method="POST" action="{{ url_for('vendedor_agregar_producto') }}">
+        <div class="form-group">
+            <label>Nombre del producto</label>
+            <input type="text" name="nombre" required>
+        </div>
+        <div class="form-group">
+            <label>Descripcion</label>
+            <textarea name="descripcion" rows="2"></textarea>
+        </div>
+<div class="form-group">
+            <label>Categoria</label>
+            <input type="text" name="categoria" list="categorias-list" required placeholder="Escribe para buscar">
+            <datalist id="categorias-list">
+                {% for cat in categorias %}
+                <option value="{{ cat.categoria }}{% if cat.subcategoria %} - {{ cat.subcategoria }}{% endif %}">
+                {% endfor %}
+            </datalist>
+        </div>
+        <div class="form-group">
+            <label>Imagen del producto</label>
+            <input type="hidden" name="imagen" id="imagen-input">
+            <div id="img-preview" style="margin-bottom:6px;"></div>
+            <button type="button" class="btn btn-success" onclick="document.getElementById('prod-camara').click()">📷 Tomar foto</button>
+            <p id="prod-foto-ok" style="color:#28a745;font-size:13px;display:none;">✓ Foto lista</p>
+        </div>
+        <input type="file" id="prod-camara" accept="image/*" capture="environment" style="display:none;" onchange="subirFotoProducto(this)">
+        <div class="form-group">
+            <label>Precio ($)</label>
+            <input type="number" name="precio" required min="1">
+        </div>
+        <div class="form-group">
+            <label>Stock disponible</label>
+            <input type="number" name="stock" required min="0" value="10">
+        </div>
+        <button type="submit" class="btn btn-success">Agregar Producto</button>
+    </form>
+</div>
+
+<div class="panel">
+    <h2>Mis Productos</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th>Categoria</th>
+                <th>Precio</th>
+                <th>Stock</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in productos %}
+            <tr>
+                <td>{{ p.nombre }}</td>
+                <td>{{ p.categoria }}</td>
+                <td>${{ "%.0f"|format(p.precio) }}</td>
+                <td>
+                    <form method="POST" action="{{ url_for('vendedor_actualizar_stock', prod_id=p.id) }}" style="display:inline;">
+                        <input type="number" name="stock" value="{{ p.stock }}" style="width:60px;" onchange="this.form.submit()">
+                    </form>
+                </td>
+                <td>{{ 'Activo' if p.activo else 'Inactivo' }}</td>
+                <td>
+                    <a href="{{ url_for('vendedor_toggle_producto', prod_id=p.id) }}" class="btn btn-warning">{{ 'Desactivar' if p.activo else 'Activar' }}</a>
+                    <a href="{{ url_for('vendedor_eliminar_producto', prod_id=p.id) }}" class="btn btn-danger" onclick="return confirm('Eliminar?')">Eliminar</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+</div>
+
+<div id="sec-pedidos" class="tab-seccion">
+<!-- PEDIDOS -->
+<div class="panel" id="pedidos">
+    <h2>Pedidos Recibidos</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Cliente</th>
+                <th>Direccion</th>
+                <th>Total</th>
+                <th>Delivery</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for pe in pedidos %}
+            <tr>
+                <td>#{{ pe.id }}</td>
+                <td>{{ pe.cliente_nombre }}<br><small>{{ pe.cliente_direccion }}</small></td>
+                <td>{{ pe.observaciones or '-' }}</td>
+                <td>${{ "%.0f"|format(pe.total) }}</td>
+                <td>${{ "%.0f"|format(pe.delivery) }}</td>
+                <td class="estado-{{ pe.estado }}">{{ pe.estado }}</td>
+                <td>
+                    {% if pe.estado == 'pendiente' %}
+                    <a href="{{ url_for('vendedor_cambiar_pedido', pedido_id=pe.id, estado='confirmado') }}" class="btn btn-success">Confirmar</a>
+                    <a href="{{ url_for('vendedor_cambiar_pedido', pedido_id=pe.id, estado='cancelado') }}" class="btn btn-danger">Cancelar</a>
+                    {% elif pe.estado == 'confirmado' %}
+                    <a href="{{ url_for('vendedor_cambiar_pedido', pedido_id=pe.id, estado='entregado') }}" class="btn btn-primary">Entregar</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+</div>
+
+<div id="sec-config" class="tab-seccion">
+<!-- CONFIGURACION -->
+<div class="panel" id="config">
+    <h2>Mi Perfil</h2>
+    <form method="POST" action="{{ url_for('vendedor_config') }}">
+        <input type="hidden" name="accion" value="perfil">
+        <div class="form-group">
+            <label>Nombre</label>
+            <input type="text" name="nombre" value="{{ usuario.nombre }}">
+        </div>
+        <div class="form-group">
+            <label>Telefono</label>
+            <input type="text" name="telefono" value="{{ usuario.telefono or '' }}">
+        </div>
+        <div class="form-group">
+            <label>Direccion</label>
+            <input type="text" name="direccion" value="{{ usuario.direccion or '' }}">
+        </div>
+        <button type="submit" class="btn btn-primary">Guardar Perfil</button>
+    </form>
+</div>
+
+<div class="panel">
+    <h2>🏪 Datos de mi tienda</h2>
+    <p style="color:#666;font-size:14px;">El nombre y la foto se ven en el directorio de tiendas y en la pagina de tu tienda.</p>
+    <form method="POST" action="{{ url_for('vendedor_config') }}" enctype="multipart/form-data">
+        <input type="hidden" name="accion" value="tienda">
+        <div class="form-group">
+            <label>Nombre de la tienda</label>
+            <input type="text" name="tienda_nombre" value="{{ usuario.tienda_nombre or usuario.nombre }}">
+        </div>
+        <div class="form-group">
+            <label>Foto/logo de la tienda</label>
+            {% if usuario.imagen_tienda %}
+            <img src="{{ usuario.imagen_tienda }}" alt="logo actual" style="width:70px;height:70px;border-radius:50%;object-fit:cover;display:block;margin-bottom:8px;">
+            {% endif %}
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+                <button type="button" class="btn btn-success" onclick="document.getElementById('logo-camara').click()">📷 Tomar foto</button>
+                <button type="button" class="btn btn-primary" onclick="document.getElementById('logo-archivo').click()">🖼️ Elegir archivo</button>
+            </div>
+            <input type="file" id="logo-camara" name="logo_file" accept="image/*" capture="environment" style="display:none;" onchange="logoElegida(this)">
+            <input type="file" id="logo-archivo" name="logo_file" accept="image/*" style="display:none;" onchange="logoElegida(this)">
+            <p id="logo-nombre" style="color:#28a745;font-size:13px;"></p>
+            <input type="text" name="imagen_tienda" value="{{ usuario.imagen_tienda or '' }}" placeholder="...o pega una URL de imagen">
+        </div>
+        <button type="submit" class="btn btn-success">Guardar Tienda</button>
+    </form>
+</div>
+
+<div class="panel">
+    <h2>Configuracion de Delivery</h2>
+    <form method="POST" action="{{ url_for('vendedor_config') }}">
+        <input type="hidden" name="accion" value="delivery">
+        <div class="form-group">
+            <label>Costo de delivery por entrega ($)</label>
+            <input type="number" name="precioDelivery" value="{{ usuario.precioDelivery or 0 }}" min="0">
+            <p style="color:#666;font-size:14px;">Pon 0 si no ofreces delivery.</p>
+        </div>
+        <div class="form-group">
+            <label>Monto minimo para delivery gratis ($)</label>
+            <input type="number" name="entregaGratis" value="{{ usuario.entregaGratis or 0 }}" min="0">
+        </div>
+        <button type="submit" class="btn btn-success">Guardar Configuracion</button>
+    </form>
+</div>
+
+<script>
+function copiarMiUrl() {
+    var inp = document.getElementById('mi-url-tienda');
+    inp.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    if (navigator.clipboard) { navigator.clipboard.writeText(inp.value); }
+    var aviso = document.getElementById('url-copiada');
+    aviso.style.display = 'block';
+    setTimeout(function() { aviso.style.display = 'none'; }, 2500);
+}
+
+function logoElegida(input) {
+    var n = (input.files && input.files[0]) ? input.files[0].name : '';
+    document.getElementById('logo-nombre').textContent = n ? 'Seleccionada: ' + n : '';
+}
+
+function subirFotoProducto(input) {
+    var file = input.files && input.files[0];
+    if (!file) return;
+    var formData = new FormData();
+    formData.append('file', file);
+    fetch('/upload', { method: 'POST', body: formData }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.success) {
+            document.getElementById('imagen-input').value = data.path;
+            document.getElementById('img-preview').innerHTML = '<img src="' + data.path + '" style="max-width:150px;max-height:100px;border-radius:5px;">';
+            document.getElementById('prod-foto-ok').style.display = 'block';
+        } else {
+            alert('No se pudo subir la foto');
+        }
+    }).catch(function() { alert('No se pudo subir la foto'); });
+    input.value = '';
+}
+
+
+// ---- Pestañas reales: una seccion a la vez ----
+function activarTab(nombre) {
+    document.querySelectorAll('.tab-seccion').forEach(function(s) { s.classList.remove('activa'); });
+    var sec = document.getElementById('sec-' + nombre);
+    if (sec) sec.classList.add('activa');
+    document.querySelectorAll('#tabs-panel .tab').forEach(function(t) {
+        t.classList.toggle('active', t.getAttribute('data-tab') === nombre);
+    });
+    if (history.replaceState) history.replaceState(null, '', '#' + nombre);
+}
+document.querySelectorAll('#tabs-panel .tab').forEach(function(t) {
+    t.addEventListener('click', function(ev) {
+        ev.preventDefault();
+        activarTab(t.getAttribute('data-tab'));
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+});
+(function() {
+    var h = (location.hash || '#productos').replace('#', '');
+    if (!document.getElementById('sec-' + h)) h = 'productos';
+    activarTab(h);
+})();
+</script>
+<style>
+.tab-seccion { display: none; }
+.tab-seccion.activa { display: block; }
+.mi-enlace-panel { border-left: 5px solid {{ config.color_primario if config else '#ff9900' }}; }
+</style>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Pedido Confirmado{% endblock %}
+{% block content %}
+<div class="panel" style="text-align:center;padding:40px;max-width:480px;margin:0 auto;">
+    <div style="font-size:60px;">✅</div>
+    <h2 style="color:#28a745;margin-bottom:8px;">Pedido Confirmado!</h2>
+    <p style="color:#666;">Pago contra entrega. Envia el detalle al vendedor por WhatsApp:</p>
+
+    {% for seg in segmentos %}
+    <div class="wa-segmento">
+        <div class="wa-numero">Pedido #{{ seg.pedido_id }}</div>
+        <div class="wa-tienda">{{ seg.vendedor }}</div>
+        <div class="wa-total">Total: {{ config.simbolo_moneda }}{{ "%.2f"|format(seg.total) }}</div>
+        {% if seg.wa_link %}
+        <a href="{{ seg.wa_link }}" target="_blank" class="btn-wa" id="btn-wa-{{ loop.index }}">
+            <span style="font-size:20px;">🟢</span> Enviar por WhatsApp
+        </a>
+        {% else %}
+        <p style="color:#666;font-size:14px;">Este vendedor no tiene WhatsApp configurado; te contactara por telefono.</p>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    <p id="retorno" style="margin-top:20px;color:#888;font-size:14px;">
+        Volviendo a la tienda en <span id="cuenta">8</span> s...
+        <a href="#" id="cancelar-retorno" onclick="detenerRetorno();return false;" style="color:#999;">quedarme aqui</a>
+    </p>
+    {% if tienda_slug %}
+    <a href="/{{ tienda_slug }}" class="btn btn-primary" id="btn-volver">Volver a {{ tienda_nombre or 'la tienda' }}</a>
+    {% else %}
+    <a href="/" class="btn btn-primary" id="btn-volver">Volver a las tiendas</a>
+    {% endif %}
+</div>
+<style>
+.wa-segmento { background: #f8fff8; border: 2px solid #28a745; border-radius: 10px; padding: 20px; margin-bottom: 15px; }
+.wa-numero { display: inline-block; background: #28a745; color: white; font-weight: bold; padding: 3px 12px; border-radius: 12px; font-size: 13px; margin-bottom: 6px; }
+.wa-tienda { font-weight: bold; font-size: 18px; margin-bottom: 5px; }
+.wa-total { color: #666; margin-bottom: 15px; }
+.btn-wa { display: block; background: #25D366; color: white; text-decoration: none; padding: 14px 20px; border-radius: 30px; font-weight: bold; font-size: 16px; }
+.btn-wa:hover { background: #1fb857; }
+#btn-volver { display: inline-block; margin-top: 5px; }
+</style>
+<script>
+var retornoDetenido = false;
+function detenerRetorno() {
+    retornoDetenido = true;
+    var p = document.getElementById('retorno');
+    if (p) p.style.display = 'none';
+}
+// Intentar abrir WhatsApp automaticamente (si el navegador lo permite).
+setTimeout(function() {
+    if (retornoDetenido) return;
+    var b = document.querySelector('[id^="btn-wa-"]');
+    if (b) window.open(b.href, '_blank');
+}, 700);
+// Regreso automatico a la tienda donde estaba comprando.
+(function cuentaAtras() {
+    var restante = 8;
+    setInterval(function() {
+        if (retornoDetenido) return;
+        restante--;
+        var c = document.getElementById('cuenta');
+        if (restante <= 0 && !retornoDetenido) {
+            var v = document.getElementById('btn-volver');
+            if (v) window.location.href = v.href;
+        } else if (c) {
+            c.textContent = restante;
+        }
+    }, 1000);
+})();
+</script>
+{% endblock %}
