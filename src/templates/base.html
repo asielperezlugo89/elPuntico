@@ -209,11 +209,13 @@
                     <span class="icon">&#128101;</span> Crear Cuenta
                 </a>
             {% endif %}
+            {% if session.rol != 'admin' %}
             <div class="sb-divider"></div>
             <a href="{{ url_for('carrito') }}" class="{{ 'active' if request.endpoint == 'carrito' }}">
                 <span class="icon">&#128722;</span> Carrito
                 <span class="badge" id="sb-carrito-badge" style="{{ 'display:none' if not session.carrito or session.carrito|length == 0 }}">{{ session.carrito|length if session.carrito else 0 }}</span>
             </a>
+            {% endif %}
         </nav>
     </aside>
     <div class="app-overlay" id="app-overlay" onclick="closeAppSidebar()"></div>

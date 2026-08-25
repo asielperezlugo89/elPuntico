@@ -1002,18 +1002,29 @@ def vendedor_panel():
 @rol_required(['vendedor'])
 def vendedor_agregar_producto():
     db = get_db()
-    cat_input = request.form.get('categoria', '')
+    cat_nombre = (request.form.get('categoria_nombre', '') or '').strip()
+    cat_sub = (request.form.get('categoria_sub', '') or '').strip()
     
-    categoria = cat_input
-    if ' - ' in cat_input:
-        parts = cat_input.split(' - ')
-        categoria = parts[0].strip()
+    if not cat_nombre:
+        return redirect(url_for('vendedor_panel'))
+    
+    # Auto-crear la categoría si no existe
+    is_mysql = DB_BACKEND == 'mysql'
+    try:
+        if is_mysql:
+            db.execute("INSERT IGNORE INTO categorias (nombre, subcategoria) VALUES (%s, %s)", (cat_nombre, cat_sub or None))
+        else:
+            db.execute("INSERT OR IGNORE INTO categorias (nombre, subcategoria) VALUES (?, ?)", (cat_nombre, cat_sub or None))
+    except Exception:
+        pass
+    
+    categoria_display = f"{cat_nombre} - {cat_sub}" if cat_sub else cat_nombre
     
     db.execute("""INSERT INTO productos (vendedor_id, nombre, descripcion, precio, stock, categoria, imagen) 
         VALUES (?, ?, ?, ?, ?, ?, ?)""",
         (session['usuario_id'], request.form.get('nombre', ''), request.form.get('descripcion', ''), 
          float(request.form.get('precio') or 0), int(request.form.get('stock') or 0), 
-         categoria, request.form.get('imagen', '')))
+         cat_nombre, request.form.get('imagen', '')))
     db.commit()
     return redirect(url_for('vendedor_panel'))
 

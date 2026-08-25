@@ -713,35 +713,26 @@
                 <div class="form-card">
                     <h3><span class="card-icon">&#128193;</span> Categoria</h3>
                     <div class="form-group">
-                        <label>Selecciona una categoria</label>
-                        <input type="text" class="cat-filter" id="cat-filter" placeholder="Buscar categoria..." oninput="filtrarCategorias(this.value)">
-                        <div class="cat-list-grid" id="cat-list">
+                        <label>Categoria</label>
+                        <input type="text" name="categoria_nombre" id="cat-nueva-nombre" placeholder="Ej: Carnes, Lacteos, Bebidas..." list="cats-existentes-nombre" required oninput="filtrarSubcats()">
+                        <datalist id="cats-existentes-nombre">
+                            {% for nombre in cats_dict.keys() %}
+                            <option value="{{ nombre }}">
+                            {% endfor %}
+                        </datalist>
+                    </div>
+                    <div class="form-group">
+                        <label>Subcategoria</label>
+                        <input type="text" name="categoria_sub" id="cat-nueva-sub" placeholder="Ej: Pollo, Leche, Cerveza..." list="cats-existentes-sub">
+                        <datalist id="cats-existentes-sub">
                             {% for nombre, subs in cats_dict.items() %}
                             {% for sub in subs %}
-                            <label class="cat-item" data-search="{{ (nombre ~ ' ' ~ sub)|lower }}">
-                                <input type="radio" name="categoria" value="{{ nombre }} - {{ sub }}" required>
-                                <span>{{ nombre }} &rsaquo; {{ sub }}</span>
-                            </label>
+                            <option value="{{ sub }}" data-cat="{{ nombre }}">
                             {% endfor %}
                             {% endfor %}
-                        </div>
+                        </datalist>
                     </div>
-
-                    <div class="request-cat-form">
-                        <h4>&#128221; No encuentras tu categoria? Solicitala al admin</h4>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Categoria</label>
-                                <input type="text" id="req-cat-nombre" placeholder="Ej: Moda">
-                            </div>
-                            <div class="form-group">
-                                <label>Subcategoria</label>
-                                <input type="text" id="req-cat-sub" placeholder="Ej: Ropa Deportiva">
-                            </div>
-                        </div>
-                        <button type="button" class="btn-main primary sm" onclick="solicitarCategoria()">&#128228; Enviar solicitud</button>
-                        <p id="req-cat-msg" style="font-size:13px;margin-top:6px;display:none;"></p>
-                    </div>
+                    <p style="font-size:12px;color:#888;margin-top:-8px;">Si la categoria no existe se creara automaticamente</p>
                 </div>
 
                 <button type="submit" class="btn-main success" style="margin-top:4px;">&#10003; Agregar Producto</button>
@@ -976,39 +967,16 @@ function subirFotoProducto(input) {
     input.value = '';
 }
 
-function filtrarCategorias(q) {
-    q = q.toLowerCase();
-    document.querySelectorAll('#cat-list .cat-item').forEach(function(item) {
-        var txt = item.getAttribute('data-search') || '';
-        item.style.display = txt.indexOf(q) !== -1 ? '' : 'none';
+function filtrarSubcats() {
+    var nombre = document.getElementById('cat-nueva-nombre').value;
+    var opts = document.querySelectorAll('#cats-existentes-sub option');
+    opts.forEach(function(o) {
+        o.style.display = (o.getAttribute('data-cat') === nombre) ? '' : 'none';
     });
 }
 
 function solicitarCategoria() {
-    var nombre = document.getElementById('req-cat-nombre').value.trim();
-    var sub = document.getElementById('req-cat-sub').value.trim();
-    var msg = document.getElementById('req-cat-msg');
-    if (!nombre) { msg.textContent = 'Escribe al menos el nombre de la categoria'; msg.style.color = '#dc3545'; msg.style.display = 'block'; return; }
-    fetch('/vendedor/solicitar-categoria', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'nombre_categoria=' + encodeURIComponent(nombre) + '&subcategoria=' + encodeURIComponent(sub)
-    }).then(function(r) { return r.json(); }).then(function(d) {
-        msg.style.display = 'block';
-        if (d.ok) {
-            msg.textContent = 'Solicitud enviada! El administrador la revisara pronto.';
-            msg.style.color = '#28a745';
-            document.getElementById('req-cat-nombre').value = '';
-            document.getElementById('req-cat-sub').value = '';
-        } else {
-            msg.textContent = d.error || 'Error al enviar';
-            msg.style.color = '#dc3545';
-        }
-    }).catch(function() {
-        msg.style.display = 'block';
-        msg.textContent = 'Error de conexion';
-        msg.style.color = '#dc3545';
-    });
+    // Ya no necesario, se crea directamente
 }
 
 function showToast(msg) {
