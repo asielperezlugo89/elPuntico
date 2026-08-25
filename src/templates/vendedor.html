@@ -700,10 +700,14 @@
                     <div class="form-group">
                         <input type="hidden" name="imagen" id="imagen-input">
                         <div id="img-preview" style="margin-bottom:10px;"></div>
-                        <button type="button" class="btn-main primary sm" onclick="document.getElementById('prod-camara').click()">&#128247; Tomar foto</button>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <button type="button" class="btn-main primary sm" onclick="document.getElementById('prod-camara').click()">&#128247; Tomar foto</button>
+                            <button type="button" class="btn-main secondary sm" onclick="document.getElementById('prod-archivo').click()">&#128193; Buscar archivo</button>
+                        </div>
                         <p id="prod-foto-ok" style="color:#28a745;font-size:13px;display:none;margin-top:6px;">&#10003; Foto lista</p>
                     </div>
                     <input type="file" id="prod-camara" accept="image/*" capture="environment" style="display:none;" onchange="subirFotoProducto(this)">
+                    <input type="file" id="prod-archivo" accept="image/*" style="display:none;" onchange="subirFotoProducto(this)">
                 </div>
 
                 <div class="form-card">
@@ -953,15 +957,22 @@ function subirFotoProducto(input) {
     if (!file) return;
     var fd = new FormData();
     fd.append('file', file);
+    document.getElementById('prod-foto-ok').style.display = 'none';
+    document.getElementById('img-preview').innerHTML = '<p style="color:#666;font-size:13px;">Subiendo...</p>';
     fetch('/upload', { method: 'POST', body: fd }).then(function(r) { return r.json(); }).then(function(d) {
         if (d.success) {
             document.getElementById('imagen-input').value = d.path;
             document.getElementById('img-preview').innerHTML = '<img src="' + d.path + '" style="max-width:160px;max-height:110px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.15);">';
+            document.getElementById('prod-foto-ok').textContent = '\u2713 Foto lista: ' + file.name;
             document.getElementById('prod-foto-ok').style.display = 'block';
         } else {
+            document.getElementById('img-preview').innerHTML = '';
             alert('No se pudo subir la foto');
         }
-    }).catch(function() { alert('Error al subir foto'); });
+    }).catch(function() {
+        document.getElementById('img-preview').innerHTML = '';
+        alert('Error al subir foto');
+    });
     input.value = '';
 }
 
