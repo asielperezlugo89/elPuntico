@@ -1233,17 +1233,26 @@ def _seed_categorias():
         ],
     }
     try:
-        db = get_db()
-        row = db.execute("SELECT COUNT(*) as n FROM categorias").fetchone()
-        if row and row['n'] > 0:
+        is_mysql = DB_BACKEND == 'mysql'
+        conn = _mysql_connect() if is_mysql else sqlite3.connect(DB_NAME)
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM categorias")
+        row = cur.fetchone()
+        count = row[0] if isinstance(row, tuple) else list(row.values())[0]
+        if count and count > 0:
+            conn.close()
             return
         for nombre_cat, subs in CATEGORIAS.items():
             for sub in subs:
                 try:
-                    db.execute("INSERT INTO categorias (nombre, subcategoria) VALUES (?, ?)", (nombre_cat, sub))
+                    if is_mysql:
+                        cur.execute("INSERT INTO categorias (nombre, subcategoria) VALUES (%s, %s)", (nombre_cat, sub))
+                    else:
+                        cur.execute("INSERT INTO categorias (nombre, subcategoria) VALUES (?, ?)", (nombre_cat, sub))
                 except Exception:
                     pass
-        db.commit()
+        conn.commit()
+        conn.close()
         print(f"Seed categorias: {sum(len(v) for v in CATEGORIAS.values())} subcategorias en {len(CATEGORIAS)} categorias")
     except Exception as e:
         print("Seed categorias error:", e)
