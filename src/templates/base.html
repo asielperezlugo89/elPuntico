@@ -149,6 +149,8 @@
     {% block extra %}{% endblock %}
 </head>
 <body>
+{% set ocultar_header = (request.endpoint == 'vendedor_panel') %}
+{% if not ocultar_header %}
 <header>
     {% set en_tienda = (vendedor is defined) and vendedor and vendedor.slug %}
     <a href="{{ '/' + vendedor.slug if en_tienda else url_for('home') }}" class="logo">{{ config.nombre_sitio if config else 'MiTienda' }}</a>
@@ -173,6 +175,7 @@
         <a href="{{ url_for('carrito') }}">🛒 Carrito (<span id="nav-carrito-num">{{ session.carrito|length if session.carrito else 0 }}</span>)</a>
     </nav>
 </header>
+{% endif %}
 <script>
 function toggleMenu() {
     var nav = document.getElementById('main-nav');
