@@ -581,41 +581,6 @@
 
     </div>
 
-    {% if solicitudes_pendientes %}
-    <div style="margin-top:30px;">
-        <h3 style="margin-bottom:15px;color:#856404;">Solicitudes de categorias pendientes ({{ solicitudes_pendientes|length }})</h3>
-        <table>
-            <thead>
-                <tr>
-                    <th>Vendedor</th>
-                    <th>Categoria</th>
-                    <th>Subcategoria</th>
-                    <th>Fecha</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for sol in solicitudes_pendientes %}
-                <tr>
-                    <td>{{ sol.vendedor_nombre }}<br><small style="color:#888;">{{ sol.vendedor_email }}</small></td>
-                    <td><strong>{{ sol.nombre_categoria }}</strong></td>
-                    <td>{{ sol.subcategoria or '-' }}</td>
-                    <td>{{ sol.fecha[:16] }}</td>
-                    <td>
-                        <button class="btn btn-success" onclick="aprobarSolicitud({{ sol.id }}, this)">Aprobar</button>
-                        <button class="btn btn-danger" onclick="rechazarSolicitud({{ sol.id }}, this)">Rechazar</button>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% else %}
-    <div style="margin-top:30px;padding:20px;background:#f8f9fa;border-radius:10px;text-align:center;color:#666;">
-        No hay solicitudes de categorias pendientes
-    </div>
-    {% endif %}
-
 </div>
 
 
@@ -1087,32 +1052,6 @@ function editarUsuario(id, nombre, email, telefono, direccion, activo, rol) {
 }
 
 
-
-function aprobarSolicitud(id, btn) {
-    if (!confirm('Aprobar esta solicitud y crear la categoria?')) return;
-    fetch('/admin/solicitudes-categoria/' + id + '/aprobar', { method: 'POST' })
-        .then(function(r) { return r.json(); })
-        .then(function(d) {
-            if (d.ok) {
-                var row = btn.closest('tr');
-                row.style.background = '#d4edda';
-                setTimeout(function() { row.remove(); }, 600);
-            } else { alert(d.error || 'Error'); }
-        });
-}
-
-function rechazarSolicitud(id, btn) {
-    if (!confirm('Rechazar esta solicitud?')) return;
-    fetch('/admin/solicitudes-categoria/' + id + '/rechazar', { method: 'POST' })
-        .then(function(r) { return r.json(); })
-        .then(function(d) {
-            if (d.ok) {
-                var row = btn.closest('tr');
-                row.style.background = '#f8d7da';
-                setTimeout(function() { row.remove(); }, 600);
-            } else { alert(d.error || 'Error'); }
-        });
-}
 
 function filtrarTabla(tablaId, columna, texto) {
 
