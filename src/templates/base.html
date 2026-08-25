@@ -205,11 +205,8 @@
                 <a href="{{ url_for('login') }}" class="{{ 'active' if request.endpoint == 'login' }}">
                     <span class="icon">&#128274;</span> Iniciar Sesion
                 </a>
-                <a href="{{ url_for('registro') }}" class="{{ 'active' if request.endpoint == 'registro' }}">
-                    <span class="icon">&#128101;</span> Crear Cuenta
-                </a>
             {% endif %}
-            {% if session.rol != 'admin' %}
+            {% if session.rol != 'admin' and session.rol != 'vendedor' %}
             <div class="sb-divider"></div>
             <a href="{{ url_for('carrito') }}" class="{{ 'active' if request.endpoint == 'carrito' }}">
                 <span class="icon">&#128722;</span> Carrito
