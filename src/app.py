@@ -326,7 +326,8 @@ def init_db():
         elif IS_PRODUCTION:
             print("No se creo admin por defecto: define DEFAULT_ADMIN_PASSWORD en produccion.")
 
-    # Sin categorias por defecto - el admin las agrega
+    # Sembrar categorias por defecto si la tabla esta vacia
+    _seed_categorias_mysql(c) if is_mysql else _seed_categorias_sqlite(conn)
 
     conn.commit()
     conn.close()
@@ -1075,9 +1076,9 @@ def _migrar_slugs():
 
 _migrar_slugs()
 
-def _seed_categorias():
-    """Si la tabla categorias esta vacia, la puebla con categorias y subcategorias por defecto."""
-    CATEGORIAS = {
+def _seed_cats_data():
+    """Diccionario de categorías y subcategorías por defecto."""
+    return {
         "Alimentos y Bebidas": [
             "Carnes y Aves", "Frutas y Verduras", "Lacteos y Huevos", "Panaderia y Reposteria",
             "Bebidas alcoholicas", "Bebidas No alcoholicas", "Snacks y Dulces", "Enlatados y Conservas",
@@ -1232,32 +1233,43 @@ def _seed_categorias():
             "Alimentos para Animales de Granja", "Herramientas de Campo",
         ],
     }
+
+def _seed_categorias_mysql(cur):
+    """Inserta categorias por defecto usando cursor MySQL (ya abierto)."""
     try:
-        is_mysql = DB_BACKEND == 'mysql'
-        conn = _mysql_connect() if is_mysql else sqlite3.connect(DB_NAME)
-        cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM categorias")
+        cur.execute("SELECT COUNT(*) as n FROM categorias")
         row = cur.fetchone()
-        count = row[0] if isinstance(row, tuple) else list(row.values())[0]
+        count = list(row.values())[0] if row else 0
         if count and count > 0:
-            conn.close()
             return
-        for nombre_cat, subs in CATEGORIAS.items():
+        cats = _seed_cats_data()
+        for nombre_cat, subs in cats.items():
             for sub in subs:
                 try:
-                    if is_mysql:
-                        cur.execute("INSERT INTO categorias (nombre, subcategoria) VALUES (%s, %s)", (nombre_cat, sub))
-                    else:
-                        cur.execute("INSERT INTO categorias (nombre, subcategoria) VALUES (?, ?)", (nombre_cat, sub))
+                    cur.execute("INSERT IGNORE INTO categorias (nombre, subcategoria) VALUES (%s, %s)", (nombre_cat, sub))
                 except Exception:
                     pass
-        conn.commit()
-        conn.close()
-        print(f"Seed categorias: {sum(len(v) for v in CATEGORIAS.values())} subcategorias en {len(CATEGORIAS)} categorias")
+        print(f"Seed categorias MySQL: {sum(len(v) for v in cats.values())} subcategorias")
     except Exception as e:
-        print("Seed categorias error:", e)
+        print("Seed categorias MySQL error:", e)
 
-_seed_categorias()
+def _seed_categorias_sqlite(conn):
+    """Inserta categorias por defecto usando conexion SQLite (ya abierta)."""
+    try:
+        row = conn.execute("SELECT COUNT(*) as n FROM categorias").fetchone()
+        count = row['n'] if row else 0
+        if count and count > 0:
+            return
+        cats = _seed_cats_data()
+        for nombre_cat, subs in cats.items():
+            for sub in subs:
+                try:
+                    conn.execute("INSERT OR IGNORE INTO categorias (nombre, subcategoria) VALUES (?, ?)", (nombre_cat, sub))
+                except Exception:
+                    pass
+        print(f"Seed categorias SQLite: {sum(len(v) for v in cats.values())} subcategorias")
+    except Exception as e:
+        print("Seed categorias SQLite error:", e)
 
 @app.route('/<slug>')
 def tienda_publica(slug):
