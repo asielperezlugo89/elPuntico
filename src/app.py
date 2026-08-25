@@ -1046,10 +1046,6 @@ def upload_img():
     
     return jsonify({'success': False})
 
-# Inicializa la BD tambien cuando el servidor lo importa (p.ej. `flask --app app run`).
-# Es idempotente: CREATE TABLE IF NOT EXISTS + INSERT OR IGNORE.
-init_db()
-
 def _migrar_slugs():
     """Anade columnas nuevas a instalaciones existentes: slug, tienda_nombre, imagen_tienda."""
     try:
@@ -1292,6 +1288,9 @@ def _seed_categorias_sqlite(conn):
         print(f"Seed categorias SQLite: {sum(len(v) for v in cats.values())} subcategorias")
     except Exception as e:
         print("Seed categorias SQLite error:", e)
+
+# Inicializa la BD (idempotente: CREATE TABLE IF NOT EXISTS + INSERT OR IGNORE).
+init_db()
 
 @app.route('/<slug>')
 def tienda_publica(slug):
