@@ -219,6 +219,16 @@ def init_db():
             UNIQUE(nombre, subcategoria)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4''')
 
+        c.execute('''CREATE TABLE IF NOT EXISTS solicitudes_categoria (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            vendedor_id INT NOT NULL,
+            nombre_categoria VARCHAR(190) NOT NULL,
+            subcategoria VARCHAR(190),
+            estado VARCHAR(20) DEFAULT 'pendiente',
+            fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (vendedor_id) REFERENCES usuarios(id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4''')
+
         c.execute('''CREATE TABLE IF NOT EXISTS config (
             clave VARCHAR(190) PRIMARY KEY,
             valor TEXT
@@ -283,6 +293,16 @@ def init_db():
             nombre TEXT NOT NULL,
             subcategoria TEXT,
             UNIQUE(nombre, subcategoria)
+        )''')
+
+        c.execute('''CREATE TABLE IF NOT EXISTS solicitudes_categoria (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            vendedor_id INTEGER NOT NULL,
+            nombre_categoria TEXT NOT NULL,
+            subcategoria TEXT,
+            estado TEXT DEFAULT 'pendiente',
+            fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (vendedor_id) REFERENCES usuarios(id)
         )''')
 
         c.execute('''CREATE TABLE IF NOT EXISTS config (
@@ -672,7 +692,20 @@ def admin_panel():
     
     categorias_json = [dict(c) for c in categorias]
     
-    return render_template('admin.html', usuarios=usuarios, productos=productos, pedidos=pedidos, categorias=categorias_json, stats=stats, config=config)
+    solicitudes_pendientes = []
+    try:
+        solicitudes_pendientes = db.execute("""
+            SELECT s.*, u.nombre as vendedor_nombre, u.email as vendedor_email
+            FROM solicitudes_categoria s
+            JOIN usuarios u ON s.vendedor_id = u.id
+            WHERE s.estado = 'pendiente'
+            ORDER BY s.fecha DESC
+        """).fetchall()
+        solicitudes_pendientes = [dict(s) for s in solicitudes_pendientes]
+    except Exception:
+        pass
+    
+    return render_template('admin.html', usuarios=usuarios, productos=productos, pedidos=pedidos, categorias=categorias_json, stats=stats, config=config, solicitudes_pendientes=solicitudes_pendientes)
 
 @app.route('/admin/usuario/<int:user_id>/editar', methods=['POST'])
 @rol_required(['admin'])
@@ -870,9 +903,23 @@ def vendedor_panel():
     usuario = db.execute("SELECT * FROM usuarios WHERE id = ?", (session['usuario_id'],)).fetchone()
     
     categorias = db.execute("SELECT nombre as categoria, subcategoria FROM categorias ORDER BY nombre, subcategoria").fetchall()
+    cats_dict = {}
+    for c in cats:
+        key = c['categoria']
+        if key not in cats_dict:
+            cats_dict[key] = []
+        if c['subcategoria']:
+            cats_dict[key].append(c['subcategoria'])
+    
+    solicitudes_pendientes = 0
+    try:
+        sp = db.execute("SELECT COUNT(*) as n FROM solicitudes_categoria WHERE estado = 'pendiente'").fetchone()
+        solicitudes_pendientes = sp['n'] if sp else 0
+    except Exception:
+        pass
     
     mi_url = request.url_root.rstrip('/') + '/' + (usuario['slug'] or '')
-    return render_template('vendedor.html', productos=productos, pedidos=pedidos, usuario=usuario, categorias=categorias, mi_url=mi_url)
+    return render_template('vendedor.html', productos=productos, pedidos=pedidos, usuario=usuario, categorias=categorias, cats_dict=cats_dict, mi_url=mi_url, solicitudes_pendientes=solicitudes_pendientes)
 
 @app.route('/vendedor/producto/agregar', methods=['POST'])
 @rol_required(['vendedor'])
@@ -955,6 +1002,66 @@ def vendedor_config():
             (request.form.get('nombre', ''), request.form.get('telefono', ''), request.form.get('direccion', ''), uid))
     db.commit()
     return redirect(url_for('vendedor_panel'))
+
+@app.route('/vendedor/solicitar-categoria', methods=['POST'])
+@rol_required(['vendedor'])
+def vendedor_solicitar_categoria():
+    db = get_db()
+    nombre = (request.form.get('nombre_categoria', '') or '').strip()
+    sub = (request.form.get('subcategoria', '') or '').strip()
+    if not nombre:
+        return jsonify({'ok': False, 'error': 'Nombre requerido'}), 400
+    if DB_BACKEND == 'mysql':
+        db.execute("INSERT INTO solicitudes_categoria (vendedor_id, nombre_categoria, subcategoria) VALUES (%s, %s, %s)",
+            (session['usuario_id'], nombre, sub or None))
+    else:
+        db.execute("INSERT INTO solicitudes_categoria (vendedor_id, nombre_categoria, subcategoria) VALUES (?, ?, ?)",
+            (session['usuario_id'], nombre, sub or None))
+    db.commit()
+    return jsonify({'ok': True, 'mensaje': 'Solicitud enviada al administrador'})
+
+@app.route('/admin/solicitudes-categoria')
+@rol_required(['admin'])
+def admin_solicitudes_categoria():
+    db = get_db()
+    solicitudes = db.execute("""
+        SELECT s.*, u.nombre as vendedor_nombre, u.email as vendedor_email
+        FROM solicitudes_categoria s
+        JOIN usuarios u ON s.vendedor_id = u.id
+        WHERE s.estado = 'pendiente'
+        ORDER BY s.fecha DESC
+    """).fetchall()
+    return jsonify([dict(s) for s in solicitudes])
+
+@app.route('/admin/solicitudes-categoria/<int:sol_id>/aprobar', methods=['POST'])
+@rol_required(['admin'])
+def admin_aprobar_solicitud(sol_id):
+    db = get_db()
+    sol = db.execute("SELECT * FROM solicitudes_categoria WHERE id = ?", (sol_id,)).fetchone()
+    if not sol:
+        return jsonify({'ok': False, 'error': 'No encontrada'}), 404
+    if sol['estado'] != 'pendiente':
+        return jsonify({'ok': False, 'error': 'Ya procesada'}), 400
+    try:
+        if DB_BACKEND == 'mysql':
+            db.execute("INSERT IGNORE INTO categorias (nombre, subcategoria) VALUES (%s, %s)",
+                (sol['nombre_categoria'], sol['subcategoria']))
+        else:
+            db.execute("INSERT OR IGNORE INTO categorias (nombre, subcategoria) VALUES (?, ?)",
+                (sol['nombre_categoria'], sol['subcategoria']))
+        db.execute("UPDATE solicitudes_categoria SET estado = 'aprobada' WHERE id = ?", (sol_id,))
+        db.commit()
+    except Exception:
+        pass
+    return jsonify({'ok': True})
+
+@app.route('/admin/solicitudes-categoria/<int:sol_id>/rechazar', methods=['POST'])
+@rol_required(['admin'])
+def admin_rechazar_solicitud(sol_id):
+    db = get_db()
+    db.execute("UPDATE solicitudes_categoria SET estado = 'rechazada' WHERE id = ?", (sol_id,))
+    db.commit()
+    return jsonify({'ok': True})
 
 @app.route('/vendedor/pedido/<int:pedido_id>/<string:estado>')
 @rol_required(['vendedor'])

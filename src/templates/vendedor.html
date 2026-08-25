@@ -1,216 +1,946 @@
 {% extends "base.html" %}
-{% block title %}Panel Vendedor{% endblock %}
+{% block title %}Mi Panel - Vendedor{% endblock %}
+
+{% block extra %}
+<style>
+    .vendedor-layout {
+        display: flex;
+        min-height: calc(100vh - 60px);
+        margin: -20px;
+        position: relative;
+    }
+
+    .sidebar {
+        width: 260px;
+        background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        color: white;
+        padding: 0;
+        flex-shrink: 0;
+        position: sticky;
+        top: 60px;
+        height: calc(100vh - 60px);
+        overflow-y: auto;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 50;
+    }
+
+    .sidebar-header {
+        padding: 24px 20px 16px;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .sidebar-header .vendor-avatar {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: {{ config.color_primario if config else '#ff9900' }};
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        margin-bottom: 10px;
+        color: white;
+        font-weight: bold;
+    }
+
+    .sidebar-header .vendor-name {
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .sidebar-header .vendor-store {
+        font-size: 13px;
+        opacity: 0.7;
+        margin-top: 2px;
+    }
+
+    .sidebar-nav {
+        padding: 12px 0;
+    }
+
+    .sidebar-nav a {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 13px 20px;
+        color: rgba(255,255,255,0.75);
+        text-decoration: none;
+        font-size: 15px;
+        transition: all 0.2s;
+        border-left: 3px solid transparent;
+    }
+
+    .sidebar-nav a:hover {
+        background: rgba(255,255,255,0.08);
+        color: white;
+    }
+
+    .sidebar-nav a.active {
+        background: rgba(255,255,255,0.12);
+        color: white;
+        border-left-color: {{ config.color_primario if config else '#ff9900' }};
+        font-weight: 600;
+    }
+
+    .sidebar-nav a .icon {
+        font-size: 18px;
+        width: 24px;
+        text-align: center;
+    }
+
+    .sidebar-nav .badge {
+        margin-left: auto;
+        background: #dc3545;
+        color: white;
+        font-size: 11px;
+        padding: 2px 7px;
+        border-radius: 10px;
+        font-weight: 600;
+    }
+
+    .sidebar-divider {
+        height: 1px;
+        background: rgba(255,255,255,0.1);
+        margin: 8px 20px;
+    }
+
+    .main-content {
+        flex: 1;
+        padding: 24px;
+        min-width: 0;
+    }
+
+    .section-page {
+        display: none;
+        animation: fadeSlideIn 0.3s ease;
+    }
+
+    .section-page.active {
+        display: block;
+    }
+
+    @keyframes fadeSlideIn {
+        from { opacity: 0; transform: translateY(12px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .section-title {
+        font-size: 22px;
+        font-weight: 700;
+        color: #1a1a2e;
+        margin-bottom: 6px;
+    }
+
+    .section-subtitle {
+        color: #666;
+        font-size: 14px;
+        margin-bottom: 24px;
+    }
+
+    .form-card {
+        background: white;
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
+    }
+
+    .form-card h3 {
+        font-size: 16px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 18px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .form-card h3 .card-icon {
+        margin-right: 8px;
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+
+    .form-group {
+        margin-bottom: 16px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 6px;
+        color: #555;
+        font-weight: 500;
+        font-size: 14px;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 11px 14px;
+        border: 1.5px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 15px;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        background: #fafafa;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+        outline: none;
+        border-color: {{ config.color_primario if config else '#ff9900' }};
+        box-shadow: 0 0 0 3px rgba(255,153,0,0.1);
+        background: white;
+    }
+
+    .form-group .help-text {
+        font-size: 12px;
+        color: #888;
+        margin-top: 4px;
+    }
+
+    .btn-main {
+        padding: 12px 28px;
+        border: none;
+        border-radius: 8px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s;
+    }
+
+    .btn-main:active { transform: scale(0.97); }
+
+    .btn-main.primary {
+        background: {{ config.color_primario if config else '#ff9900' }};
+        color: white;
+    }
+    .btn-main.primary:hover { filter: brightness(1.1); }
+
+    .btn-main.success {
+        background: #28a745;
+        color: white;
+    }
+    .btn-main.success:hover { filter: brightness(1.1); }
+
+    .btn-main.danger {
+        background: #dc3545;
+        color: white;
+    }
+
+    .btn-main.secondary {
+        background: #e9ecef;
+        color: #333;
+    }
+
+    .btn-main.sm {
+        padding: 7px 14px;
+        font-size: 13px;
+    }
+
+    .product-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .product-table th {
+        text-align: left;
+        padding: 12px 14px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        background: #f8f9fa;
+        border-bottom: 2px solid #eee;
+    }
+
+    .product-table td {
+        padding: 12px 14px;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 14px;
+        vertical-align: middle;
+    }
+
+    .product-table tr:hover td {
+        background: #fafbfc;
+    }
+
+    .product-table .prod-name {
+        font-weight: 600;
+        color: #333;
+    }
+
+    .product-table .prod-cat {
+        display: inline-block;
+        background: #f0f4ff;
+        color: #4a6fa5;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .stock-input {
+        width: 65px;
+        padding: 6px 8px;
+        border: 1.5px solid #ddd;
+        border-radius: 6px;
+        text-align: center;
+        font-size: 14px;
+    }
+
+    .stock-input:focus {
+        border-color: {{ config.color_primario if config else '#ff9900' }};
+        outline: none;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .status-badge.active { background: #d4edda; color: #155724; }
+    .status-badge.inactive { background: #f8d7da; color: #721c24; }
+    .status-badge.pendiente { background: #fff3cd; color: #856404; }
+    .status-badge.confirmado { background: #cce5ff; color: #004085; }
+    .status-badge.entregado { background: #d4edda; color: #155724; }
+    .status-badge.cancelado { background: #f8d7da; color: #721c24; }
+
+    .empty-state {
+        text-align: center;
+        padding: 48px 20px;
+        color: #999;
+    }
+
+    .empty-state .empty-icon {
+        font-size: 48px;
+        margin-bottom: 12px;
+        opacity: 0.5;
+    }
+
+    .empty-state p {
+        font-size: 15px;
+    }
+
+    .link-copy-box {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .link-copy-box input {
+        flex: 1;
+        min-width: 200px;
+        padding: 12px;
+        border: 1.5px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 14px;
+        background: #f8f9fa;
+    }
+
+    .cat-list-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 8px;
+        max-height: 260px;
+        overflow-y: auto;
+        padding: 4px 0;
+    }
+
+    .cat-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1.5px solid #eee;
+        cursor: pointer;
+        transition: all 0.15s;
+        font-size: 14px;
+    }
+
+    .cat-item:hover {
+        border-color: {{ config.color_primario if config else '#ff9900' }};
+        background: #fff;
+    }
+
+    .cat-item.selected {
+        border-color: {{ config.color_primario if config else '#ff9900' }};
+        background: rgba(255,153,0,0.08);
+        font-weight: 600;
+    }
+
+    .cat-item input[type="radio"] {
+        accent-color: {{ config.color_primario if config else '#ff9900' }};
+    }
+
+    .cat-filter {
+        padding: 10px 12px;
+        border: 1.5px solid #e0e0e0;
+        border-radius: 8px;
+        width: 100%;
+        font-size: 14px;
+        margin-bottom: 12px;
+    }
+
+    .cat-filter:focus {
+        outline: none;
+        border-color: {{ config.color_primario if config else '#ff9900' }};
+    }
+
+    .request-cat-form {
+        margin-top: 16px;
+        padding: 16px;
+        background: #fff8e1;
+        border: 1.5px dashed #ffc107;
+        border-radius: 10px;
+    }
+
+    .request-cat-form h4 {
+        font-size: 14px;
+        color: #856404;
+        margin-bottom: 10px;
+    }
+
+    .request-cat-form .form-row {
+        gap: 10px;
+    }
+
+    .toast-vend {
+        display: none;
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #28a745;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 30px;
+        font-weight: 600;
+        font-size: 14px;
+        z-index: 9999;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+    }
+
+    .hamburger-btn {
+        display: none;
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        background: {{ config.color_primario if config else '#ff9900' }};
+        color: white;
+        border: none;
+        font-size: 22px;
+        cursor: pointer;
+        z-index: 200;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+        transition: transform 0.2s;
+    }
+
+    .hamburger-btn:active {
+        transform: scale(0.9);
+    }
+
+    .sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 45;
+    }
+
+    .sidebar-overlay.active {
+        display: block;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 6px;
+        flex-wrap: nowrap;
+    }
+
+    .action-buttons a, .action-buttons form {
+        display: inline;
+    }
+
+    @media (max-width: 768px) {
+        .vendedor-layout {
+            flex-direction: column;
+        }
+
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 280px;
+            height: 100vh;
+            transform: translateX(-100%);
+            z-index: 50;
+            border-radius: 0 16px 16px 0;
+        }
+
+        .sidebar.open {
+            transform: translateX(0);
+        }
+
+        .sidebar-header {
+            padding-top: 40px;
+        }
+
+        .hamburger-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .main-content {
+            padding: 16px;
+            padding-bottom: 80px;
+        }
+
+        .form-row {
+            grid-template-columns: 1fr;
+        }
+
+        .link-copy-box {
+            flex-direction: column;
+        }
+
+        .link-copy-box input {
+            min-width: 100%;
+        }
+
+        .cat-list-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .action-buttons {
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .action-buttons a, .action-buttons button {
+            width: 100%;
+            text-align: center;
+            box-sizing: border-box;
+            font-size: 12px;
+            padding: 8px;
+        }
+
+        .product-table {
+            font-size: 12px;
+        }
+
+        .product-table th, .product-table td {
+            padding: 8px 6px;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="tabs" id="tabs-panel">
-    <a href="#productos" class="tab active" data-tab="productos">📦 Productos</a>
-    <a href="#pedidos" class="tab" data-tab="pedidos">🧾 Pedidos</a>
-    <a href="#config" class="tab" data-tab="config">⚙️ Configuracion</a>
-</div>
-
-<div class="panel mi-enlace-panel">
-    <h2>🔗 Mi Tienda Online</h2>
-    <p style="color:#666;margin-bottom:10px;">Comparte este enlace con tus clientes para que compren directo de tu tienda:</p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <input type="text" id="mi-url-tienda" value="{{ mi_url }}" readonly style="flex:1;min-width:220px;padding:12px;border:1px solid #ddd;border-radius:8px;background:#f8f9fa;">
-        <button type="button" class="btn btn-primary" onclick="copiarMiUrl()">📋 Copiar enlace</button>
-        <a href="{{ mi_url }}" target="_blank" class="btn btn-secondary">👁️ Ver mi tienda</a>
-    </div>
-    <p id="url-copiada" style="color:#28a745;font-size:13px;display:none;margin-top:5px;">✓ Enlace copiado</p>
-</div>
-
-<div id="sec-productos" class="tab-seccion activa">
-<!-- PRODUCTOS -->
-<div class="panel" id="productos">
-    <h2>Agregar Producto</h2>
-    <form method="POST" action="{{ url_for('vendedor_agregar_producto') }}">
-        <div class="form-group">
-            <label>Nombre del producto</label>
-            <input type="text" name="nombre" required>
-        </div>
-        <div class="form-group">
-            <label>Descripcion</label>
-            <textarea name="descripcion" rows="2"></textarea>
-        </div>
-<div class="form-group">
-            <label>Categoria</label>
-            <input type="text" name="categoria" list="categorias-list" required placeholder="Escribe para buscar">
-            <datalist id="categorias-list">
-                {% for cat in categorias %}
-                <option value="{{ cat.categoria }}{% if cat.subcategoria %} - {{ cat.subcategoria }}{% endif %}">
-                {% endfor %}
-            </datalist>
-        </div>
-        <div class="form-group">
-            <label>Imagen del producto</label>
-            <input type="hidden" name="imagen" id="imagen-input">
-            <div id="img-preview" style="margin-bottom:6px;"></div>
-            <button type="button" class="btn btn-success" onclick="document.getElementById('prod-camara').click()">📷 Tomar foto</button>
-            <p id="prod-foto-ok" style="color:#28a745;font-size:13px;display:none;">✓ Foto lista</p>
-        </div>
-        <input type="file" id="prod-camara" accept="image/*" capture="environment" style="display:none;" onchange="subirFotoProducto(this)">
-        <div class="form-group">
-            <label>Precio ($)</label>
-            <input type="number" name="precio" required min="1">
-        </div>
-        <div class="form-group">
-            <label>Stock disponible</label>
-            <input type="number" name="stock" required min="0" value="10">
-        </div>
-        <button type="submit" class="btn btn-success">Agregar Producto</button>
-    </form>
-</div>
-
-<div class="panel">
-    <h2>Mis Productos</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Producto</th>
-                <th>Categoria</th>
-                <th>Precio</th>
-                <th>Stock</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for p in productos %}
-            <tr>
-                <td>{{ p.nombre }}</td>
-                <td>{{ p.categoria }}</td>
-                <td>${{ "%.0f"|format(p.precio) }}</td>
-                <td>
-                    <form method="POST" action="{{ url_for('vendedor_actualizar_stock', prod_id=p.id) }}" style="display:inline;">
-                        <input type="number" name="stock" value="{{ p.stock }}" style="width:60px;" onchange="this.form.submit()">
-                    </form>
-                </td>
-                <td>{{ 'Activo' if p.activo else 'Inactivo' }}</td>
-                <td>
-                    <a href="{{ url_for('vendedor_toggle_producto', prod_id=p.id) }}" class="btn btn-warning">{{ 'Desactivar' if p.activo else 'Activar' }}</a>
-                    <a href="{{ url_for('vendedor_eliminar_producto', prod_id=p.id) }}" class="btn btn-danger" onclick="return confirm('Eliminar?')">Eliminar</a>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-</div>
-
-<div id="sec-pedidos" class="tab-seccion">
-<!-- PEDIDOS -->
-<div class="panel" id="pedidos">
-    <h2>Pedidos Recibidos</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Cliente</th>
-                <th>Direccion</th>
-                <th>Total</th>
-                <th>Delivery</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for pe in pedidos %}
-            <tr>
-                <td>#{{ pe.id }}</td>
-                <td>{{ pe.cliente_nombre }}<br><small>{{ pe.cliente_direccion }}</small></td>
-                <td>{{ pe.observaciones or '-' }}</td>
-                <td>${{ "%.0f"|format(pe.total) }}</td>
-                <td>${{ "%.0f"|format(pe.delivery) }}</td>
-                <td class="estado-{{ pe.estado }}">{{ pe.estado }}</td>
-                <td>
-                    {% if pe.estado == 'pendiente' %}
-                    <a href="{{ url_for('vendedor_cambiar_pedido', pedido_id=pe.id, estado='confirmado') }}" class="btn btn-success">Confirmar</a>
-                    <a href="{{ url_for('vendedor_cambiar_pedido', pedido_id=pe.id, estado='cancelado') }}" class="btn btn-danger">Cancelar</a>
-                    {% elif pe.estado == 'confirmado' %}
-                    <a href="{{ url_for('vendedor_cambiar_pedido', pedido_id=pe.id, estado='entregado') }}" class="btn btn-primary">Entregar</a>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-</div>
-
-<div id="sec-config" class="tab-seccion">
-<!-- CONFIGURACION -->
-<div class="panel" id="config">
-    <h2>Mi Perfil</h2>
-    <form method="POST" action="{{ url_for('vendedor_config') }}">
-        <input type="hidden" name="accion" value="perfil">
-        <div class="form-group">
-            <label>Nombre</label>
-            <input type="text" name="nombre" value="{{ usuario.nombre }}">
-        </div>
-        <div class="form-group">
-            <label>Telefono</label>
-            <input type="text" name="telefono" value="{{ usuario.telefono or '' }}">
-        </div>
-        <div class="form-group">
-            <label>Direccion</label>
-            <input type="text" name="direccion" value="{{ usuario.direccion or '' }}">
-        </div>
-        <button type="submit" class="btn btn-primary">Guardar Perfil</button>
-    </form>
-</div>
-
-<div class="panel">
-    <h2>🏪 Datos de mi tienda</h2>
-    <p style="color:#666;font-size:14px;">El nombre y la foto se ven en el directorio de tiendas y en la pagina de tu tienda.</p>
-    <form method="POST" action="{{ url_for('vendedor_config') }}" enctype="multipart/form-data">
-        <input type="hidden" name="accion" value="tienda">
-        <div class="form-group">
-            <label>Nombre de la tienda</label>
-            <input type="text" name="tienda_nombre" value="{{ usuario.tienda_nombre or usuario.nombre }}">
-        </div>
-        <div class="form-group">
-            <label>Foto/logo de la tienda</label>
+<div class="vendedor-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
             {% if usuario.imagen_tienda %}
-            <img src="{{ usuario.imagen_tienda }}" alt="logo actual" style="width:70px;height:70px;border-radius:50%;object-fit:cover;display:block;margin-bottom:8px;">
+            <img src="{{ usuario.imagen_tienda }}" alt="logo" class="vendor-avatar" style="object-fit:cover;">
+            {% else %}
+            <div class="vendor-avatar">{{ (usuario.tienda_nombre or usuario.nombre or 'V')[0]|upper }}</div>
             {% endif %}
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
-                <button type="button" class="btn btn-success" onclick="document.getElementById('logo-camara').click()">📷 Tomar foto</button>
-                <button type="button" class="btn btn-primary" onclick="document.getElementById('logo-archivo').click()">🖼️ Elegir archivo</button>
-            </div>
-            <input type="file" id="logo-camara" name="logo_file" accept="image/*" capture="environment" style="display:none;" onchange="logoElegida(this)">
-            <input type="file" id="logo-archivo" name="logo_file" accept="image/*" style="display:none;" onchange="logoElegida(this)">
-            <p id="logo-nombre" style="color:#28a745;font-size:13px;"></p>
-            <input type="text" name="imagen_tienda" value="{{ usuario.imagen_tienda or '' }}" placeholder="...o pega una URL de imagen">
+            <div class="vendor-name">{{ usuario.tienda_nombre or usuario.nombre }}</div>
+            <div class="vendor-store">{{ usuario.email }}</div>
         </div>
-        <button type="submit" class="btn btn-success">Guardar Tienda</button>
-    </form>
+        <nav class="sidebar-nav">
+            <a href="#" class="active" data-section="productos" onclick="showSection('productos', this)">
+                <span class="icon">&#128230;</span> Mis Productos
+            </a>
+            <a href="#" data-section="nuevo-producto" onclick="showSection('nuevo-producto', this)">
+                <span class="icon">&#10133;</span> Agregar Producto
+            </a>
+            <a href="#" data-section="pedidos" onclick="showSection('pedidos', this)">
+                <span class="icon">&#129534;</span> Pedidos
+                {% if pedidos|selectattr('estado','equalto','pendiente')|list|length > 0 %}
+                <span class="badge">{{ pedidos|selectattr('estado','equalto','pendiente')|list|length }}</span>
+                {% endif %}
+            </a>
+            <div class="sidebar-divider"></div>
+            <a href="#" data-section="mi-tienda" onclick="showSection('mi-tienda', this)">
+                <span class="icon">&#127978;</span> Mi Tienda
+            </a>
+            <a href="#" data-section="mi-perfil" onclick="showSection('mi-perfil', this)">
+                <span class="icon">&#128100;</span> Mi Perfil
+            </a>
+            <a href="#" data-section="delivery" onclick="showSection('delivery', this)">
+                <span class="icon">&#128666;</span> Delivery
+            </a>
+            <a href="#" data-section="enlace" onclick="showSection('enlace', this)">
+                <span class="icon">&#128279;</span> Mi Enlace
+            </a>
+            <div class="sidebar-divider"></div>
+            <a href="{{ url_for('logout') }}">
+                <span class="icon">&#128682;</span> Cerrar Sesion
+            </a>
+        </nav>
+    </aside>
+
+    <!-- Overlay para cerrar sidebar en mobile -->
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+    <!-- Contenido principal -->
+    <main class="main-content">
+
+        <!-- SECCION: Mis Productos -->
+        <div class="section-page active" id="sec-productos">
+            <div class="section-title">Mis Productos</div>
+            <div class="section-subtitle">Gestiona tu inventario</div>
+
+            {% if productos %}
+            <div class="form-card">
+                <table class="product-table">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Categoria</th>
+                            <th>Precio</th>
+                            <th>Stock</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in productos %}
+                        <tr>
+                            <td class="prod-name">{{ p.nombre }}</td>
+                            <td><span class="prod-cat">{{ p.categoria }}</span></td>
+                            <td>${{ "%.0f"|format(p.precio) }}</td>
+                            <td>
+                                <form method="POST" action="{{ url_for('vendedor_actualizar_stock', prod_id=p.id) }}" style="display:inline;">
+                                    <input type="number" name="stock" value="{{ p.stock }}" class="stock-input" onchange="this.form.submit()">
+                                </form>
+                            </td>
+                            <td><span class="status-badge {{ 'active' if p.activo else 'inactive' }}">{{ 'Activo' if p.activo else 'Inactivo' }}</span></td>
+                            <td>
+                                <div class="action-buttons">
+                                    <a href="{{ url_for('vendedor_toggle_producto', prod_id=p.id) }}" class="btn-main sm {{ 'secondary' if p.activo else 'success' }}">{{ 'Off' if p.activo else 'On' }}</a>
+                                    <a href="{{ url_for('vendedor_eliminar_producto', prod_id=p.id) }}" class="btn-main sm danger" onclick="return confirm('Eliminar este producto?')">X</a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="form-card">
+                <div class="empty-state">
+                    <div class="empty-icon">&#128230;</div>
+                    <p>No tienes productos aun</p>
+                    <button class="btn-main primary" style="margin-top:12px;" onclick="showSection('nuevo-producto', document.querySelector('[data-section=nuevo-producto]'))">+ Agregar mi primer producto</button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- SECCION: Agregar Producto -->
+        <div class="section-page" id="sec-nuevo-producto">
+            <div class="section-title">Agregar Producto</div>
+            <div class="section-subtitle">Completa los datos de tu producto</div>
+
+            <form method="POST" action="{{ url_for('vendedor_agregar_producto') }}" id="form-nuevo-producto">
+                <div class="form-card">
+                    <h3><span class="card-icon">&#128221;</span> Informacion del producto</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Nombre del producto *</label>
+                            <input type="text" name="nombre" required placeholder="Ej: Camiseta Running Pro">
+                        </div>
+                        <div class="form-group">
+                            <label>Precio ($) *</label>
+                            <input type="number" name="precio" required min="1" placeholder="0">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Stock disponible *</label>
+                            <input type="number" name="stock" required min="0" value="10">
+                        </div>
+                        <div class="form-group">
+                            <label>&nbsp;</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Descripcion</label>
+                        <textarea name="descripcion" rows="3" placeholder="Describe tu producto..."></textarea>
+                    </div>
+                </div>
+
+                <div class="form-card">
+                    <h3><span class="card-icon">&#128194;</span> Imagen del producto</h3>
+                    <div class="form-group">
+                        <input type="hidden" name="imagen" id="imagen-input">
+                        <div id="img-preview" style="margin-bottom:10px;"></div>
+                        <button type="button" class="btn-main primary sm" onclick="document.getElementById('prod-camara').click()">&#128247; Tomar foto</button>
+                        <p id="prod-foto-ok" style="color:#28a745;font-size:13px;display:none;margin-top:6px;">&#10003; Foto lista</p>
+                    </div>
+                    <input type="file" id="prod-camara" accept="image/*" capture="environment" style="display:none;" onchange="subirFotoProducto(this)">
+                </div>
+
+                <div class="form-card">
+                    <h3><span class="card-icon">&#128193;</span> Categoria</h3>
+                    <div class="form-group">
+                        <label>Selecciona una categoria</label>
+                        <input type="text" class="cat-filter" id="cat-filter" placeholder="Buscar categoria..." oninput="filtrarCategorias(this.value)">
+                        <div class="cat-list-grid" id="cat-list">
+                            {% for nombre, subs in cats_dict.items() %}
+                            {% for sub in subs %}
+                            <label class="cat-item" data-search="{{ (nombre ~ ' ' ~ sub)|lower }}">
+                                <input type="radio" name="categoria" value="{{ nombre }} - {{ sub }}" required>
+                                <span>{{ nombre }} &rsaquo; {{ sub }}</span>
+                            </label>
+                            {% endfor %}
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="request-cat-form">
+                        <h4>&#128221; No encuentras tu categoria? Solicitala al admin</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Categoria</label>
+                                <input type="text" id="req-cat-nombre" placeholder="Ej: Moda">
+                            </div>
+                            <div class="form-group">
+                                <label>Subcategoria</label>
+                                <input type="text" id="req-cat-sub" placeholder="Ej: Ropa Deportiva">
+                            </div>
+                        </div>
+                        <button type="button" class="btn-main primary sm" onclick="solicitarCategoria()">&#128228; Enviar solicitud</button>
+                        <p id="req-cat-msg" style="font-size:13px;margin-top:6px;display:none;"></p>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-main success" style="margin-top:4px;">&#10003; Agregar Producto</button>
+            </form>
+        </div>
+
+        <!-- SECCION: Pedidos -->
+        <div class="section-page" id="sec-pedidos">
+            <div class="section-title">Pedidos Recibidos</div>
+            <div class="section-subtitle">Gestiona los pedidos de tus clientes</div>
+
+            {% if pedidos %}
+            <div class="form-card">
+                <table class="product-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Cliente</th>
+                            <th>Direccion</th>
+                            <th>Total</th>
+                            <th>Delivery</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pe in pedidos %}
+                        <tr>
+                            <td><strong>#{{ pe.id }}</strong></td>
+                            <td>{{ pe.cliente_nombre }}<br><small style="color:#888;">{{ pe.observaciones or '' }}</small></td>
+                            <td><small>{{ pe.cliente_direccion or '-' }}</small></td>
+                            <td><strong>${{ "%.0f"|format(pe.total) }}</strong></td>
+                            <td>${{ "%.0f"|format(pe.delivery) }}</td>
+                            <td><span class="status-badge {{ pe.estado }}">{{ pe.estado }}</span></td>
+                            <td>
+                                <div class="action-buttons">
+                                    {% if pe.estado == 'pendiente' %}
+                                    <a href="{{ url_for('vendedor_cambiar_pedido', pedido_id=pe.id, estado='confirmado') }}" class="btn-main sm success">Confirmar</a>
+                                    <a href="{{ url_for('vendedor_cambiar_pedido', pedido_id=pe.id, estado='cancelado') }}" class="btn-main sm danger">Cancelar</a>
+                                    {% elif pe.estado == 'confirmado' %}
+                                    <a href="{{ url_for('vendedor_cambiar_pedido', pedido_id=pe.id, estado='entregado') }}" class="btn-main sm primary">Entregar</a>
+                                    {% else %}
+                                    <span style="color:#999;font-size:13px;">-</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="form-card">
+                <div class="empty-state">
+                    <div class="empty-icon">&#129534;</div>
+                    <p>No tienes pedidos aun</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- SECCION: Mi Tienda -->
+        <div class="section-page" id="sec-mi-tienda">
+            <div class="section-title">Mi Tienda</div>
+            <div class="section-subtitle">Nombre y logo que se ven en el directorio</div>
+
+            <form method="POST" action="{{ url_for('vendedor_config') }}" enctype="multipart/form-data">
+                <input type="hidden" name="accion" value="tienda">
+                <div class="form-card">
+                    <h3><span class="card-icon">&#127978;</span> Datos de la tienda</h3>
+                    <div class="form-group">
+                        <label>Nombre de la tienda</label>
+                        <input type="text" name="tienda_nombre" value="{{ usuario.tienda_nombre or usuario.nombre }}" placeholder="Mi Tienda">
+                    </div>
+                    <div class="form-group">
+                        <label>Foto / Logo</label>
+                        {% if usuario.imagen_tienda %}
+                        <img src="{{ usuario.imagen_tienda }}" alt="logo" style="width:72px;height:72px;border-radius:50%;object-fit:cover;display:block;margin-bottom:10px;border:3px solid #eee;">
+                        {% endif %}
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                            <button type="button" class="btn-main primary sm" onclick="document.getElementById('logo-camara').click()">&#128247; Foto</button>
+                            <button type="button" class="btn-main secondary sm" onclick="document.getElementById('logo-archivo').click()">&#128444; Archivo</button>
+                        </div>
+                        <input type="file" id="logo-camara" name="logo_file" accept="image/*" capture="environment" style="display:none;" onchange="logoElegida(this)">
+                        <input type="file" id="logo-archivo" name="logo_file" accept="image/*" style="display:none;" onchange="logoElegida(this)">
+                        <p id="logo-nombre" style="color:#28a745;font-size:13px;"></p>
+                        <input type="text" name="imagen_tienda" value="{{ usuario.imagen_tienda or '' }}" placeholder="...o pega una URL de imagen" style="margin-top:8px;">
+                    </div>
+                </div>
+                <button type="submit" class="btn-main success">&#10003; Guardar Tienda</button>
+            </form>
+        </div>
+
+        <!-- SECCION: Mi Perfil -->
+        <div class="section-page" id="sec-mi-perfil">
+            <div class="section-title">Mi Perfil</div>
+            <div class="section-subtitle">Datos personales</div>
+
+            <form method="POST" action="{{ url_for('vendedor_config') }}">
+                <input type="hidden" name="accion" value="perfil">
+                <div class="form-card">
+                    <h3><span class="card-icon">&#128100;</span> Informacion personal</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Nombre completo</label>
+                            <input type="text" name="nombre" value="{{ usuario.nombre }}">
+                        </div>
+                        <div class="form-group">
+                            <label>Telefono</label>
+                            <input type="text" name="telefono" value="{{ usuario.telefono or '' }}" placeholder="0000">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Direccion</label>
+                        <input type="text" name="direccion" value="{{ usuario.direccion or '' }}" placeholder="Tu direccion">
+                    </div>
+                </div>
+                <button type="submit" class="btn-main success">&#10003; Guardar Perfil</button>
+            </form>
+        </div>
+
+        <!-- SECCION: Delivery -->
+        <div class="section-page" id="sec-delivery">
+            <div class="section-title">Delivery</div>
+            <div class="section-subtitle">Configura el envio a domicilio</div>
+
+            <form method="POST" action="{{ url_for('vendedor_config') }}">
+                <input type="hidden" name="accion" value="delivery">
+                <div class="form-card">
+                    <h3><span class="card-icon">&#128666;</span> Tarifas de delivery</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Costo por entrega ($)</label>
+                            <input type="number" name="precioDelivery" value="{{ usuario.precioDelivery or 0 }}" min="0">
+                            <div class="help-text">Pon 0 si no ofreces delivery</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Monto minimo para gratis ($)</label>
+                            <input type="number" name="entregaGratis" value="{{ usuario.entregaGratis or 0 }}" min="0">
+                            <div class="help-text">0 para desactivar</div>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn-main success">&#10003; Guardar Configuracion</button>
+            </form>
+        </div>
+
+        <!-- SECCION: Mi Enlace -->
+        <div class="section-page" id="sec-enlace">
+            <div class="section-title">Mi Enlace</div>
+            <div class="section-subtitle">Comparte este enlace con tus clientes</div>
+
+            <div class="form-card">
+                <h3><span class="card-icon">&#128279;</span> Link de tu tienda online</h3>
+                <div class="link-copy-box">
+                    <input type="text" id="mi-url-tienda" value="{{ mi_url }}" readonly>
+                    <button type="button" class="btn-main primary" onclick="copiarMiUrl()">&#128203; Copiar</button>
+                    <a href="{{ mi_url }}" target="_blank" class="btn-main secondary">&#128065; Ver tienda</a>
+                </div>
+                <p id="url-copiada" style="color:#28a745;font-size:13px;display:none;margin-top:8px;">&#10003; Enlace copiado al portapapeles</p>
+            </div>
+        </div>
+
+    </main>
 </div>
 
-<div class="panel">
-    <h2>Configuracion de Delivery</h2>
-    <form method="POST" action="{{ url_for('vendedor_config') }}">
-        <input type="hidden" name="accion" value="delivery">
-        <div class="form-group">
-            <label>Costo de delivery por entrega ($)</label>
-            <input type="number" name="precioDelivery" value="{{ usuario.precioDelivery or 0 }}" min="0">
-            <p style="color:#666;font-size:14px;">Pon 0 si no ofreces delivery.</p>
-        </div>
-        <div class="form-group">
-            <label>Monto minimo para delivery gratis ($)</label>
-            <input type="number" name="entregaGratis" value="{{ usuario.entregaGratis or 0 }}" min="0">
-        </div>
-        <button type="submit" class="btn btn-success">Guardar Configuracion</button>
-    </form>
-</div>
+<!-- Hamburger flotante (solo mobile) -->
+<button class="hamburger-btn" id="hamburger-btn" onclick="toggleSidebar()">&#9776;</button>
+
+<!-- Toast -->
+<div class="toast-vend" id="toast-vend"></div>
 
 <script>
+function showSection(name, el) {
+    document.querySelectorAll('.section-page').forEach(function(s) { s.classList.remove('active'); });
+    var sec = document.getElementById('sec-' + name);
+    if (sec) sec.classList.add('active');
+    document.querySelectorAll('.sidebar-nav a').forEach(function(a) { a.classList.remove('active'); });
+    if (el) el.classList.add('active');
+    closeSidebar();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (history.replaceState) history.replaceState(null, '', '#' + name);
+}
+
+function toggleSidebar() {
+    var sb = document.getElementById('sidebar');
+    var ov = document.getElementById('sidebar-overlay');
+    sb.classList.toggle('open');
+    ov.classList.toggle('active');
+}
+
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar-overlay').classList.remove('active');
+}
+
 function copiarMiUrl() {
     var inp = document.getElementById('mi-url-tienda');
     inp.select();
-    try { document.execCommand('copy'); } catch (e) {}
+    try { document.execCommand('copy'); } catch(e) {}
     if (navigator.clipboard) { navigator.clipboard.writeText(inp.value); }
-    var aviso = document.getElementById('url-copiada');
-    aviso.style.display = 'block';
-    setTimeout(function() { aviso.style.display = 'none'; }, 2500);
+    document.getElementById('url-copiada').style.display = 'block';
+    setTimeout(function() { document.getElementById('url-copiada').style.display = 'none'; }, 2500);
 }
 
 function logoElegida(input) {
@@ -221,47 +951,67 @@ function logoElegida(input) {
 function subirFotoProducto(input) {
     var file = input.files && input.files[0];
     if (!file) return;
-    var formData = new FormData();
-    formData.append('file', file);
-    fetch('/upload', { method: 'POST', body: formData }).then(function(r) { return r.json(); }).then(function(data) {
-        if (data.success) {
-            document.getElementById('imagen-input').value = data.path;
-            document.getElementById('img-preview').innerHTML = '<img src="' + data.path + '" style="max-width:150px;max-height:100px;border-radius:5px;">';
+    var fd = new FormData();
+    fd.append('file', file);
+    fetch('/upload', { method: 'POST', body: fd }).then(function(r) { return r.json(); }).then(function(d) {
+        if (d.success) {
+            document.getElementById('imagen-input').value = d.path;
+            document.getElementById('img-preview').innerHTML = '<img src="' + d.path + '" style="max-width:160px;max-height:110px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.15);">';
             document.getElementById('prod-foto-ok').style.display = 'block';
         } else {
             alert('No se pudo subir la foto');
         }
-    }).catch(function() { alert('No se pudo subir la foto'); });
+    }).catch(function() { alert('Error al subir foto'); });
     input.value = '';
 }
 
-
-// ---- Pestañas reales: una seccion a la vez ----
-function activarTab(nombre) {
-    document.querySelectorAll('.tab-seccion').forEach(function(s) { s.classList.remove('activa'); });
-    var sec = document.getElementById('sec-' + nombre);
-    if (sec) sec.classList.add('activa');
-    document.querySelectorAll('#tabs-panel .tab').forEach(function(t) {
-        t.classList.toggle('active', t.getAttribute('data-tab') === nombre);
+function filtrarCategorias(q) {
+    q = q.toLowerCase();
+    document.querySelectorAll('#cat-list .cat-item').forEach(function(item) {
+        var txt = item.getAttribute('data-search') || '';
+        item.style.display = txt.indexOf(q) !== -1 ? '' : 'none';
     });
-    if (history.replaceState) history.replaceState(null, '', '#' + nombre);
 }
-document.querySelectorAll('#tabs-panel .tab').forEach(function(t) {
-    t.addEventListener('click', function(ev) {
-        ev.preventDefault();
-        activarTab(t.getAttribute('data-tab'));
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+function solicitarCategoria() {
+    var nombre = document.getElementById('req-cat-nombre').value.trim();
+    var sub = document.getElementById('req-cat-sub').value.trim();
+    var msg = document.getElementById('req-cat-msg');
+    if (!nombre) { msg.textContent = 'Escribe al menos el nombre de la categoria'; msg.style.color = '#dc3545'; msg.style.display = 'block'; return; }
+    fetch('/vendedor/solicitar-categoria', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'nombre_categoria=' + encodeURIComponent(nombre) + '&subcategoria=' + encodeURIComponent(sub)
+    }).then(function(r) { return r.json(); }).then(function(d) {
+        msg.style.display = 'block';
+        if (d.ok) {
+            msg.textContent = 'Solicitud enviada! El administrador la revisara pronto.';
+            msg.style.color = '#28a745';
+            document.getElementById('req-cat-nombre').value = '';
+            document.getElementById('req-cat-sub').value = '';
+        } else {
+            msg.textContent = d.error || 'Error al enviar';
+            msg.style.color = '#dc3545';
+        }
+    }).catch(function() {
+        msg.style.display = 'block';
+        msg.textContent = 'Error de conexion';
+        msg.style.color = '#dc3545';
     });
-});
+}
+
+function showToast(msg) {
+    var t = document.getElementById('toast-vend');
+    t.textContent = msg;
+    t.style.display = 'block';
+    setTimeout(function() { t.style.display = 'none'; }, 2200);
+}
+
 (function() {
     var h = (location.hash || '#productos').replace('#', '');
     if (!document.getElementById('sec-' + h)) h = 'productos';
-    activarTab(h);
+    var link = document.querySelector('[data-section="' + h + '"]');
+    showSection(h, link);
 })();
 </script>
-<style>
-.tab-seccion { display: none; }
-.tab-seccion.activa { display: block; }
-.mi-enlace-panel { border-left: 5px solid {{ config.color_primario if config else '#ff9900' }}; }
-</style>
 {% endblock %}
