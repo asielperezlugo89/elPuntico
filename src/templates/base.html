@@ -163,13 +163,25 @@
                     <div class="sb-name">{{ session.nombre }}</div>
                 </a>
                 {% else %}
-                <div class="sb-avatar">{{ session.nombre[:1]|upper }}</div>
+                <div class="sb-avatar" style="{% if config and config.logo_sitio %}background:transparent;padding:0;overflow:hidden;{% endif %}">
+                    {% if config and config.logo_sitio %}
+                    <img src="{{ config.logo_sitio }}" style="width:100%;height:100%;object-fit:cover;">
+                    {% else %}
+                    {{ session.nombre[:1]|upper }}
+                    {% endif %}
+                </div>
                 <div class="sb-name">{{ session.nombre }}</div>
                 {% endif %}
                 <div class="sb-sub">{{ session.rol|capitalize }}</div>
             {% else %}
                 <a href="{{ url_for('home') }}" style="text-decoration:none;color:white;">
-                    <div class="sb-avatar" style="font-size:18px;">{{ config.nombre_sitio[:2] if config else 'MT' }}</div>
+                    <div class="sb-avatar" style="font-size:18px;{% if config and config.logo_sitio %}background:transparent;padding:0;overflow:hidden;{% endif %}">
+                        {% if config and config.logo_sitio %}
+                        <img src="{{ config.logo_sitio }}" style="width:100%;height:100%;object-fit:cover;">
+                        {% else %}
+                        {{ config.nombre_sitio[:2] if config else 'MT' }}
+                        {% endif %}
+                    </div>
                     <div class="sb-name">{{ config.nombre_sitio if config else 'MiTienda' }}</div>
                 </a>
                 <div class="sb-sub">Directorio de tiendas</div>

@@ -711,6 +711,20 @@
                 </div>
 
                 <div class="form-card">
+                    <h3><span class="card-icon">&#128248;</span> Fotos adicionales</h3>
+                    <div class="form-group">
+                        <label>Fotos extra del producto (variedad de colores, vistas, etc.)</label>
+                        <input type="hidden" name="fotos" id="fotos-input">
+                        <div id="fotos-preview" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;"></div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <button type="button" class="btn-main primary sm" onclick="document.getElementById('prod-foto-extra').click()">&#128247; Agregar foto</button>
+                        </div>
+                        <p style="font-size:12px;color:#888;margin-top:6px;">Fotos que se veran al tocar el producto. Separadas por coma si agregas URL directa.</p>
+                    </div>
+                    <input type="file" id="prod-foto-extra" accept="image/*" style="display:none;" onchange="subirFotoExtra(this)">
+                </div>
+
+                <div class="form-card">
                     <h3><span class="card-icon">&#128193;</span> Categoria</h3>
                     <div class="form-group">
                         <label>Categoria</label>
@@ -962,6 +976,30 @@ function subirFotoProducto(input) {
         }
     }).catch(function() {
         document.getElementById('img-preview').innerHTML = '';
+        alert('Error al subir foto');
+    });
+    input.value = '';
+}
+
+function subirFotoExtra(input) {
+    var file = input.files && input.files[0];
+    if (!file) return;
+    var fd = new FormData();
+    fd.append('file', file);
+    fetch('/upload', { method: 'POST', body: fd }).then(function(r) { return r.json(); }).then(function(d) {
+        if (d.success) {
+            var actual = document.getElementById('fotos-input').value;
+            var nueva = actual ? actual + ', ' + d.path : d.path;
+            document.getElementById('fotos-input').value = nueva;
+            var preview = document.getElementById('fotos-preview');
+            var img = document.createElement('img');
+            img.src = d.path;
+            img.style.cssText = 'width:80px;height:80px;object-fit:cover;border-radius:8px;';
+            preview.appendChild(img);
+        } else {
+            alert('No se pudo subir la foto');
+        }
+    }).catch(function() {
         alert('Error al subir foto');
     });
     input.value = '';

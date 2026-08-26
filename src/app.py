@@ -733,6 +733,13 @@ def admin_editar_usuario(user_id):
     password_nueva = request.form.get('password_nueva', '').strip()
     if password_nueva:
         db.execute("UPDATE usuarios SET password = ? WHERE id = ?", (hash_password(password_nueva), user_id))
+    if rol == 'vendedor':
+        user = db.execute("SELECT slug, tienda_nombre FROM usuarios WHERE id = ?", (user_id,)).fetchone()
+        if user and not user['slug']:
+            slug = generar_slug(db, user['tienda_nombre'] or nombre, exclude_id=user_id)
+            db.execute("UPDATE usuarios SET slug = ? WHERE id = ?", (slug, user_id))
+        if user and not user['tienda_nombre']:
+            db.execute("UPDATE usuarios SET tienda_nombre = ? WHERE id = ?", (nombre, user_id))
     db.commit()
     return redirect(url_for('admin_panel'))
 
@@ -976,11 +983,11 @@ def vendedor_agregar_producto():
     
     categoria_display = f"{cat_nombre} - {cat_sub}" if cat_sub else cat_nombre
     
-    db.execute("""INSERT INTO productos (vendedor_id, nombre, descripcion, precio, stock, categoria, imagen) 
-        VALUES (?, ?, ?, ?, ?, ?, ?)""",
+    db.execute("""INSERT INTO productos (vendedor_id, nombre, descripcion, precio, stock, categoria, imagen, fotos) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
         (session['usuario_id'], request.form.get('nombre', ''), request.form.get('descripcion', ''), 
          float(request.form.get('precio') or 0), int(request.form.get('stock') or 0), 
-         cat_nombre, request.form.get('imagen', '')))
+         cat_nombre, request.form.get('imagen', ''), request.form.get('fotos', '')))
     db.commit()
     return redirect(url_for('vendedor_panel'))
 
@@ -1184,6 +1191,30 @@ def _migrar_slugs():
         print('Migracion de slugs:', e)
 
 _migrar_slugs()
+
+def _migrar_fotos_producto():
+    """Anade columna 'fotos' a la tabla productos para multiples imagenes."""
+    try:
+        if DB_BACKEND == 'mysql':
+            conn = _mysql_connect()
+            cur = conn.cursor()
+            try:
+                cur.execute("ALTER TABLE productos ADD COLUMN fotos TEXT")
+                conn.commit()
+            except Exception:
+                pass
+            conn.close()
+        else:
+            conn = sqlite3.connect(DB_NAME)
+            cols = [r[1] for r in conn.execute("PRAGMA table_info(productos)").fetchall()]
+            if 'fotos' not in cols:
+                conn.execute("ALTER TABLE productos ADD COLUMN fotos TEXT")
+                conn.commit()
+            conn.close()
+    except Exception as e:
+        print('Migracion fotos producto:', e)
+
+_migrar_fotos_producto()
 
 # Inicializa la BD (idempotente: CREATE TABLE IF NOT EXISTS + INSERT OR IGNORE).
 init_db()

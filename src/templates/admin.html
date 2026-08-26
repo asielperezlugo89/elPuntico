@@ -609,6 +609,50 @@
 
             </div>
 
+            <div class="form-group" style="grid-column: span 2;">
+
+                <label>Logo del sitio</label>
+
+                <div style="display:flex;align-items:center;gap:15px;">
+
+                    <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#667eea,#ff9900);display:flex;align-items:center;justify-content:center;color:white;font-size:20px;font-weight:bold;overflow:hidden;flex-shrink:0;">
+
+                        {% if config.logo_sitio %}
+
+                        <img src="{{ config.logo_sitio }}" style="width:100%;height:100%;object-fit:cover;">
+
+                        {% else %}
+
+                        {{ config.nombre_sitio[:2] if config else 'MT' }}
+
+                        {% endif %}
+
+                    </div>
+
+                    <div style="flex:1;">
+
+                        <input type="text" name="logo_sitio" id="logo_sitio-input" value="{{ config.logo_sitio }}" placeholder="URL o selecciona archivo...">
+
+                        <div style="margin-top:5px;display:flex;gap:5px;">
+
+                            <button type="button" class="btn btn-secondary" onclick="abrirSelectorLogo()">Seleccionar archivo</button>
+
+                            {% if config.logo_sitio %}
+
+                            <button type="button" class="btn btn-danger" onclick="document.getElementById('logo_sitio-input').value='';this.closest('div').previousElementSibling.querySelector('img')?.remove();" style="font-size:12px;">Quitar</button>
+
+                            {% endif %}
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
             <div class="form-group">
 
                 <label>Moneda</label>
@@ -1207,6 +1251,64 @@ function actualizarGaleriaBanner(files) {
 
     galeria.body.innerHTML = html;
 
+}
+
+let logoActual = '';
+
+function abrirSelectorLogo() {
+    logoActual = 'logo_sitio';
+    document.getElementById('modal-img').classList.add('active');
+    fetch('/uploads').then(r => r.json()).then(files => {
+        actualizarGaleriaLogo(files);
+    });
+}
+
+function seleccionarLogoImg(src) {
+    document.getElementById('logo_sitio-input').value = src;
+    cerrarModalImgBanner();
+}
+
+function seleccionarYGuardarLogo(url) {
+    let formData = new FormData();
+    formData.append('url', url);
+    fetch('/upload', {method:'POST', body:formData}).then(r => r.json()).then(data => {
+        if (data.success) seleccionarLogoImg(data.path);
+        else alert('No se pudo descargar');
+    });
+}
+
+function subirArchivoLogo(input) {
+    let file = input.files[0];
+    if (!file) return;
+    let formData = new FormData();
+    formData.append('file', file);
+    fetch('/upload', {method:'POST', body:formData}).then(r => r.json()).then(data => {
+        if (data.success) {
+            seleccionarLogoImg(data.path);
+        }
+    });
+    input.value = '';
+}
+
+function actualizarGaleriaLogo(files) {
+    let galeria = document.getElementById('img-iframe').contentWindow.document;
+    let html = '<div style="padding:10px;">';
+    html += '<p style="margin-bottom:10px;font-weight:bold;">Pegar URL para descargar:</p>';
+    html += '<div style="display:flex;gap:5px;margin-bottom:15px;">';
+    html += '<input type="text" id="url-input-logo" placeholder="https://...jpg" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:5px;">';
+    html += '<button type="button" class="btn btn-primary" onclick="parent.seleccionarYGuardarLogo(document.getElementById(\'url-input-logo\').value)">Descargar</button>';
+    html += '</div>';
+    html += '<p style="margin-bottom:10px;font-weight:bold;">Archivos locales:</p>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px;">';
+    if (files.length === 0) {
+        html += '<p style="padding:20px;color:#666;grid-column:span 3;">No hay imagenes.</p>';
+    } else {
+        files.forEach(f => {
+            html += '<img src="/img/' + f + '" style="width:100px;height:100px;object-fit:cover;cursor:pointer;border-radius:5px;border:2px solid transparent;" onmouseover="this.style.borderColor=\'#ff9900\'" onmouseout="this.style.borderColor=\'transparent\'" onclick="parent.seleccionarLogoImg(\'/img/' + f + '\')" title="' + f + '">';
+        });
+    }
+    html += '</div></div>';
+    galeria.body.innerHTML = html;
 }
 
 </script>

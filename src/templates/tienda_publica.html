@@ -20,7 +20,7 @@
 {% if productos %}
 <div class="grid-productos">
     {% for p in productos %}
-    <div class="producto">
+    <div class="producto" onclick="abrirDetalle({{ p.id }}, '{{ p.nombre|e }}', '{{ (p.descripcion or '')|e }}', '{{ p.imagen or '' }}', '{{ p.fotos or '' }}', {{ p.precio }}, {{ p.stock }}, '{{ config.simbolo_moneda }}')" style="cursor:pointer;">
         <div class="producto-img">
             {% if p.imagen %}
                 <img src="{{ p.imagen }}" alt="{{ p.nombre }}" onerror="this.parentElement.innerHTML='&#128230;'">
@@ -28,10 +28,9 @@
         </div>
         <div class="producto-info">
             <div class="producto-nombre">{{ p.nombre }}</div>
-            <div class="producto-descripcion">{{ p.descripcion }}</div>
             <div class="producto-precio">{{ config.simbolo_moneda }}{{ "%.2f"|format(p.precio) }}</div>
             <div class="producto-stock {{ 'bajo' if p.stock <= 3 }}">{{ p.stock }} disponibles</div>
-            <form method="POST" action="{{ url_for('agregar_carrito') }}" class="producto-acciones">
+            <form method="POST" action="{{ url_for('agregar_carrito') }}" class="producto-acciones" onclick="event.stopPropagation();">
                 <input type="hidden" name="producto_id" value="{{ p.id }}">
                 <input type="number" name="cantidad" value="1" min="1" max="{{ p.stock }}">
                 <button type="submit" class="btn-agregar">Agregar</button>
@@ -43,14 +42,128 @@
 {% else %}
 <p style="text-align:center;padding:40px;color:#666;">Esta tienda aun no tiene productos disponibles.</p>
 {% endif %}
+
+<div id="modal-detalle" class="modal" onclick="if(event.target===this)cerrarDetalle();">
+    <div class="modal-content" style="max-width:600px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+            <h3 id="detalle-nombre" style="margin:0;"></h3>
+            <button onclick="cerrarDetalle()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#666;">&times;</button>
+        </div>
+        <div id="detalle-img-principal" style="width:100%;max-height:350px;border-radius:10px;overflow:hidden;background:#f0f2f5;margin-bottom:15px;display:flex;align-items:center;justify-content:center;">
+            <img id="detalle-img" src="" style="width:100%;max-height:350px;object-fit:contain;">
+        </div>
+        <div id="detalle-fotos" style="display:none;gap:8px;margin-bottom:15px;flex-wrap:wrap;"></div>
+        <p id="detalle-descripcion" style="color:#555;margin-bottom:12px;white-space:pre-line;"></p>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+            <div id="detalle-precio" style="font-size:24px;font-weight:bold;"></div>
+            <div id="detalle-stock" style="font-size:14px;"></div>
+        </div>
+        <form method="POST" action="{{ url_for('agregar_carrito') }}" style="display:flex;gap:10px;">
+            <input type="hidden" name="producto_id" id="detalle-producto-id">
+            <input type="number" name="cantidad" value="1" min="1" id="detalle-cantidad" style="width:70px;padding:10px;border:1px solid #ddd;border-radius:5px;">
+            <button type="submit" class="btn-agregar" style="flex:1;padding:12px;">Agregar al carrito</button>
+        </form>
+    </div>
+</div>
+
+<footer class="tienda-footer">
+    <div class="tienda-footer-inner">
+        <div class="tienda-footer-info">
+            <div class="tienda-footer-avatar">
+                {% if vendedor.imagen_tienda %}
+                <img src="{{ vendedor.imagen_tienda }}" style="width:100%;height:100%;object-fit:cover;">
+                {% else %}
+                {{ (vendedor.tienda_nombre or vendedor.nombre)[:1]|upper }}
+                {% endif %}
+            </div>
+            <div>
+                <div class="tienda-footer-nombre">{{ vendedor.tienda_nombre or vendedor.nombre }}</div>
+                {% if vendedor.direccion %}<div class="tienda-footer-dato">&#128205; {{ vendedor.direccion }}</div>{% endif %}
+                {% if vendedor.telefono %}<div class="tienda-footer-dato">&#128222; {{ vendedor.telefono }}</div>{% endif %}
+            </div>
+        </div>
+        {% if vendedor.telefono %}
+        <a href="https://wa.me/{{ vendedor.telefono|replace(' ','')|replace('-','')|replace('+','') }}?text=Hola%20{{ (vendedor.tienda_nombre or vendedor.nombre)|urlencode }}%2C%20quiero%20mas%20informacion" target="_blank" class="tienda-footer-whatsapp">
+            &#128172; WhatsApp
+        </a>
+        {% endif %}
+    </div>
+</footer>
+
 <style>
 .tienda-header { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
-.tienda-avatar { width: 70px; height: 70px; border-radius: 50%; background: linear-gradient(135deg, {{ config.color_secundario if config else '#667eea' }}, {{ config.color_primario if config else '#ff9900' }}); color: white; font-size: 32px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+.tienda-avatar { width: 70px; height: 70px; border-radius: 50%; background: linear-gradient(135deg, {{ config.color_secundario if config else '#667eea' }}, {{ config.color_primario if config else '#ff9900' }}); color: white; font-size: 32px; font-weight: bold; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .tienda-foto { object-fit: cover; background: white; border: 2px solid {{ config.color_primario if config else '#ff9900' }}; }
 .tienda-info { flex: 1; min-width: 200px; }
 .tienda-info h1 { color: {{ config.color_texto if config else '#333' }}; margin-bottom: 5px; }
 .tienda-info p { color: #666; font-size: 14px; }
-.producto-descripcion { color: #777; font-size: 13px; margin-bottom: 8px; min-height: 18px; }
-@media (max-width: 480px) { .tienda-header { text-align: center; justify-content: center; } }
+.tienda-footer { background: #1a1a2e; color: white; margin-top: 40px; padding: 25px 20px; }
+.tienda-footer-inner { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+.tienda-footer-info { display: flex; align-items: center; gap: 15px; }
+.tienda-footer-avatar { width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, {{ config.color_secundario if config else '#667eea' }}, {{ config.color_primario if config else '#ff9900' }}); color: white; font-size: 20px; font-weight: bold; display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; }
+.tienda-footer-nombre { font-weight: bold; font-size: 16px; margin-bottom: 2px; }
+.tienda-footer-dato { font-size: 13px; opacity: 0.8; }
+.tienda-footer-whatsapp { background: #25d366; color: white; padding: 10px 20px; border-radius: 25px; text-decoration: none; font-weight: bold; font-size: 14px; white-space: nowrap; }
+.tienda-footer-whatsapp:hover { background: #1da851; }
+@media (max-width: 480px) {
+    .tienda-header { text-align: center; justify-content: center; }
+    .tienda-footer-inner { flex-direction: column; text-align: center; }
+    .tienda-footer-info { flex-direction: column; }
+}
 </style>
+{% endblock %}
+
+{% block extra %}
+<script>
+function abrirDetalle(id, nombre, descripcion, imagen, fotos, precio, stock, moneda) {
+    document.getElementById('detalle-producto-id').value = id;
+    document.getElementById('detalle-nombre').textContent = nombre;
+    document.getElementById('detalle-precio').textContent = moneda + precio.toFixed(2);
+    document.getElementById('detalle-cantidad').max = stock;
+    document.getElementById('detalle-cantidad').value = 1;
+    if (stock <= 3) {
+        document.getElementById('detalle-stock').innerHTML = '<span style="color:#dc3545;">Quedan ' + stock + '</span>';
+    } else {
+        document.getElementById('detalle-stock').textContent = stock + ' disponibles';
+    }
+    if (imagen) {
+        document.getElementById('detalle-img').src = imagen;
+        document.getElementById('detalle-img-principal').style.display = 'flex';
+    } else {
+        document.getElementById('detalle-img-principal').style.display = 'none';
+    }
+    if (descripcion) {
+        document.getElementById('detalle-descripcion').textContent = descripcion;
+        document.getElementById('detalle-descripcion').style.display = 'block';
+    } else {
+        document.getElementById('detalle-descripcion').style.display = 'none';
+    }
+    var fotosDiv = document.getElementById('detalle-fotos');
+    fotosDiv.innerHTML = '';
+    if (fotos && fotos.trim()) {
+        var arr = fotos.split(',').map(function(s){return s.trim();}).filter(function(s){return s;});
+        if (arr.length > 0) {
+            arr.forEach(function(f) {
+                var img = document.createElement('img');
+                img.src = f;
+                img.style.cssText = 'width:80px;height:80px;object-fit:cover;border-radius:8px;cursor:pointer;border:2px solid transparent;';
+                img.onmouseover = function(){ this.style.borderColor = '{{ config.color_primario if config else "#ff9900" }}'; };
+                img.onmouseout = function(){ this.style.borderColor = 'transparent'; };
+                img.onclick = function(){ document.getElementById('detalle-img').src = f; };
+                img.onerror = function(){ this.style.display='none'; };
+                fotosDiv.appendChild(img);
+            });
+            fotosDiv.style.display = 'flex';
+        } else {
+            fotosDiv.style.display = 'none';
+        }
+    } else {
+        fotosDiv.style.display = 'none';
+    }
+    document.getElementById('modal-detalle').classList.add('active');
+}
+function cerrarDetalle() {
+    document.getElementById('modal-detalle').classList.remove('active');
+}
+</script>
 {% endblock %}
