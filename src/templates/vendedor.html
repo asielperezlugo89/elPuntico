@@ -622,7 +622,7 @@
             <div class="vendor-store">{{ usuario.email }}</div>
         </div>
         <nav class="sidebar-nav">
-            <a href="#" class="active" data-section="productos" onclick="showSection('productos', this)">
+            <a href="#" data-section="productos" onclick="showSection('productos', this)">
                 <span class="icon">&#128230;</span> Mis Productos
             </a>
             <a href="#" data-section="nuevo-producto" onclick="showSection('nuevo-producto', this)">
@@ -635,7 +635,7 @@
                 {% endif %}
             </a>
             <div class="sidebar-divider"></div>
-            <a href="#" data-section="mi-tienda" onclick="showSection('mi-tienda', this)">
+            <a href="#" class="active" data-section="mi-tienda" onclick="showSection('mi-tienda', this)">
                 <span class="icon">&#127978;</span> Mi Tienda
             </a>
             <a href="#" data-section="mi-perfil" onclick="showSection('mi-perfil', this)">
@@ -1223,7 +1223,7 @@ function showToast(msg) {
 }
 
 (function() {
-    var h = (location.hash || '#productos').replace('#', '');
+    var h = (location.hash || '#mi-tienda').replace('#', '');
     if (!document.getElementById('sec-' + h)) h = 'productos';
     var link = document.querySelector('[data-section="' + h + '"]');
     showSection(h, link);
