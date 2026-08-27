@@ -1385,6 +1385,16 @@ def _check_pedidos_expirados():
         _ultima_revision_pedidos = ahora
         _auto_cancelar_pedidos_pendientes()
 
+@app.after_request
+def _no_cache_html(response):
+    """Evita que el navegador cachee paginas HTML (ver siempre la version mas reciente)."""
+    ctype = (response.headers.get('Content-Type', '') or '').lower()
+    if ctype.startswith('text/html'):
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+    return response
+
 @app.route('/<slug>')
 def tienda_publica(slug):
     """Tienda publica de cada vendedor: elpuntico.wasmer.app/la-flor"""
