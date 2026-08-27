@@ -692,7 +692,15 @@
                             <td><span class="status-badge {{ 'active' if p.activo else 'inactive' }}">{{ 'Activo' if p.activo else 'Inactivo' }}</span></td>
                             <td>
                                 <div class="action-buttons">
-                                    <a href="#" class="btn-main sm primary" onclick="editarProducto({{ p.id }}, {{ p.nombre|tojson }}, {{ (p.descripcion or '')|tojson }}, {{ p.precio }}, {{ p.stock }}, {{ p.categoria|tojson }}, {{ (p.imagen or '')|tojson }}, {{ (p.fotos or '')|tojson }});return false;">Editar</a>
+                                    <button type="button" class="btn-main sm primary" onclick="editarProducto(this)"
+                                        data-id="{{ p.id }}"
+                                        data-nombre="{{ p.nombre }}"
+                                        data-descripcion="{{ p.descripcion or '' }}"
+                                        data-precio="{{ p.precio }}"
+                                        data-stock="{{ p.stock }}"
+                                        data-categoria="{{ p.categoria }}"
+                                        data-imagen="{{ p.imagen or '' }}"
+                                        data-fotos="{{ p.fotos or '' }}">Editar</button>
                                     <a href="{{ url_for('vendedor_toggle_producto', prod_id=p.id) }}" class="btn-main sm {{ 'secondary' if p.activo else 'success' }}">{{ 'Off' if p.activo else 'On' }}</a>
                                     <a href="{{ url_for('vendedor_eliminar_producto', prod_id=p.id) }}" class="btn-main sm danger" onclick="return confirm('Eliminar este producto?')">X</a>
                                 </div>
@@ -1038,15 +1046,15 @@ function cerrarModalEditar() {
     document.getElementById('modal-editar-producto').style.display = 'none';
 }
 
-function editarProducto(id, nombre, descripcion, precio, stock, categoria, imagen, fotos) {
-    document.getElementById('form-editar-producto').action = '/vendedor/producto/' + id + '/editar';
-    document.getElementById('edit-nombre').value = nombre;
-    document.getElementById('edit-precio').value = precio;
-    document.getElementById('edit-stock').value = stock;
-    document.getElementById('edit-cat').value = categoria || '';
-    document.getElementById('edit-descripcion').value = descripcion || '';
-    document.getElementById('edit-imagen').value = imagen || '';
-    document.getElementById('edit-fotos').value = fotos || '';
+function editarProducto(btn) {
+    document.getElementById('form-editar-producto').action = '/vendedor/producto/' + btn.getAttribute('data-id') + '/editar';
+    document.getElementById('edit-nombre').value = btn.getAttribute('data-nombre');
+    document.getElementById('edit-precio').value = btn.getAttribute('data-precio');
+    document.getElementById('edit-stock').value = btn.getAttribute('data-stock');
+    document.getElementById('edit-cat').value = btn.getAttribute('data-categoria') || '';
+    document.getElementById('edit-descripcion').value = btn.getAttribute('data-descripcion') || '';
+    document.getElementById('edit-imagen').value = btn.getAttribute('data-imagen') || '';
+    document.getElementById('edit-fotos').value = btn.getAttribute('data-fotos') || '';
     document.getElementById('modal-editar-producto').style.display = 'flex';
 }
 
