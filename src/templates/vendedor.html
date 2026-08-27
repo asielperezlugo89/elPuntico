@@ -483,6 +483,56 @@
         display: inline;
     }
 
+    .modal-edit {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(0,0,0,0.55);
+        z-index: 300;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        box-sizing: border-box;
+    }
+
+    .modal-edit-content {
+        background: white;
+        border-radius: 14px;
+        padding: 24px;
+        width: 100%;
+        max-width: 520px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    }
+
+    .modal-edit-content .form-group label {
+        display: block;
+        margin-bottom: 6px;
+        color: #555;
+        font-weight: 500;
+        font-size: 14px;
+    }
+
+    .modal-edit-content .form-group input,
+    .modal-edit-content .form-group textarea {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1.5px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 14px;
+        background: #fafafa;
+        box-sizing: border-box;
+    }
+
+    .modal-edit-content .form-group input:focus,
+    .modal-edit-content .form-group textarea:focus {
+        outline: none;
+        border-color: {{ config.color_primario if config else '#ff9900' }};
+        background: white;
+    }
+
     @media (max-width: 768px) {
         .vendedor-layout {
             flex-direction: column;
@@ -642,6 +692,7 @@
                             <td><span class="status-badge {{ 'active' if p.activo else 'inactive' }}">{{ 'Activo' if p.activo else 'Inactivo' }}</span></td>
                             <td>
                                 <div class="action-buttons">
+                                    <a href="#" class="btn-main sm primary" onclick="editarProducto({{ p.id }}, {{ p.nombre|tojson }}, {{ (p.descripcion or '')|tojson }}, {{ p.precio }}, {{ p.stock }}, {{ p.categoria|tojson }}, {{ (p.imagen or '')|tojson }}, {{ (p.fotos or '')|tojson }});return false;">Editar</a>
                                     <a href="{{ url_for('vendedor_toggle_producto', prod_id=p.id) }}" class="btn-main sm {{ 'secondary' if p.activo else 'success' }}">{{ 'Off' if p.activo else 'On' }}</a>
                                     <a href="{{ url_for('vendedor_eliminar_producto', prod_id=p.id) }}" class="btn-main sm danger" onclick="return confirm('Eliminar este producto?')">X</a>
                                 </div>
@@ -813,6 +864,21 @@
             <div class="section-title">Mi Tienda</div>
             <div class="section-subtitle">Nombre y logo que se ven en el directorio</div>
 
+            <div class="form-card">
+                <h3><span class="card-icon">&#9203;</span> Estado de tu tienda</h3>
+                {% if vencimiento.estado == 'free' %}
+                    <p style="color:#6c757d;font-size:14px;margin:0;">Tu tienda esta <strong>sin fecha de vencimiento</strong> (gratis). Disfruta de tu plan inicial.</p>
+                {% elif vencimiento.vencida %}
+                    <p style="color:#dc3545;font-size:14px;margin:0;font-weight:600;">&#9888; Tu tienda esta <strong>vencida</strong>. Para mantenerla activa debes renovar tu pago.</p>
+                    <p style="color:#666;font-size:13px;margin:6px 0 0;">Tu pago vencio el <strong>{{ vencimiento.fecha }}</strong>. Contacta a la administracion para renovar.</p>
+                {% elif vencimiento.por_vencer %}
+                    <p style="color:#856404;font-size:14px;margin:0;font-weight:600;">&#9203; Tu tienda vence <strong>en {{ vencimiento.dias }} dias</strong> ({{ vencimiento.fecha }}).</p>
+                    <p style="color:#666;font-size:13px;margin:6px 0 0;">Recuerda renovar tu pago para mantener tu tienda activa.</p>
+                {% else %}
+                    <p style="color:#155724;font-size:14px;margin:0;">&#9989; Tu tienda esta <strong>activa</strong> hasta el <strong>{{ vencimiento.fecha }}</strong> ({{ vencimiento.dias }} dias restantes).</p>
+                {% endif %}
+            </div>
+
             <form method="POST" action="{{ url_for('vendedor_config') }}" enctype="multipart/form-data">
                 <input type="hidden" name="accion" value="tienda">
                 <div class="form-card">
@@ -913,6 +979,54 @@
     </main>
 </div>
 
+<!-- MODAL EDITAR PRODUCTO -->
+<div class="modal-edit" id="modal-editar-producto" style="display:none;">
+    <div class="modal-edit-content">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h3 style="margin:0;font-size:18px;color:#1a1a2e;">Editar Producto</h3>
+            <button type="button" onclick="cerrarModalEditar()" style="border:none;background:none;font-size:24px;cursor:pointer;color:#888;line-height:1;">&times;</button>
+        </div>
+        <form method="POST" action="" id="form-editar-producto">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Nombre del producto *</label>
+                    <input type="text" name="nombre" id="edit-nombre" required>
+                </div>
+                <div class="form-group">
+                    <label>Precio ($) *</label>
+                    <input type="number" name="precio" id="edit-precio" required min="1" step="0.01">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Stock *</label>
+                    <input type="number" name="stock" id="edit-stock" required min="0">
+                </div>
+                <div class="form-group">
+                    <label>Categoria</label>
+                    <input type="text" name="categoria_nombre" id="edit-cat" list="cats-existentes-nombre">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Descripcion</label>
+                <textarea name="descripcion" id="edit-descripcion" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Imagen (URL)</label>
+                <input type="text" name="imagen" id="edit-imagen" placeholder="URL de la imagen">
+            </div>
+            <div class="form-group">
+                <label>Fotos adicionales (URLs separadas por coma)</label>
+                <input type="text" name="fotos" id="edit-fotos" placeholder="URL1, URL2, ...">
+            </div>
+            <div style="display:flex;gap:10px;margin-top:8px;">
+                <button type="submit" class="btn-main success">&#10003; Guardar Cambios</button>
+                <button type="button" class="btn-main secondary" onclick="cerrarModalEditar()">Cancelar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Hamburger flotante (solo mobile) -->
 <button class="hamburger-btn" id="hamburger-btn" onclick="toggleSidebar()">&#9776;</button>
 
@@ -920,6 +1034,22 @@
 <div class="toast-vend" id="toast-vend"></div>
 
 <script>
+function cerrarModalEditar() {
+    document.getElementById('modal-editar-producto').style.display = 'none';
+}
+
+function editarProducto(id, nombre, descripcion, precio, stock, categoria, imagen, fotos) {
+    document.getElementById('form-editar-producto').action = '/vendedor/producto/' + id + '/editar';
+    document.getElementById('edit-nombre').value = nombre;
+    document.getElementById('edit-precio').value = precio;
+    document.getElementById('edit-stock').value = stock;
+    document.getElementById('edit-cat').value = categoria || '';
+    document.getElementById('edit-descripcion').value = descripcion || '';
+    document.getElementById('edit-imagen').value = imagen || '';
+    document.getElementById('edit-fotos').value = fotos || '';
+    document.getElementById('modal-editar-producto').style.display = 'flex';
+}
+
 function showSection(name, el) {
     document.querySelectorAll('.section-page').forEach(function(s) { s.classList.remove('active'); });
     var sec = document.getElementById('sec-' + name);

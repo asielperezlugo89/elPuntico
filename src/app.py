@@ -1029,7 +1029,23 @@ def vendedor_panel():
             cats_dict[key].append(c['subcategoria'])
     
     mi_url = request.url_root.rstrip('/') + '/' + (usuario['slug'] or '')
-    return render_template('vendedor.html', productos=productos, pedidos=pedidos, usuario=usuario, categorias=categorias, cats_dict=cats_dict, mi_url=mi_url)
+    from datetime import date
+    hoy = date.today()
+    vencimiento = {}
+    if usuario['pago_hasta']:
+        f = _parsed_fecha(usuario['pago_hasta'])
+        if f:
+            dias = (f - hoy).days
+            vencimiento = {
+                'fecha': f.isoformat(),
+                'dias': dias,
+                'vencida': dias < 0,
+                'por_vencer': 0 <= dias <= 7,
+                'estado': 'vencida' if dias < 0 else ('por_vencer' if dias <= 7 else 'activa'),
+            }
+    else:
+        vencimiento = {'estado': 'free', 'fecha': None, 'dias': None, 'vencida': False, 'por_vencer': False}
+    return render_template('vendedor.html', productos=productos, pedidos=pedidos, usuario=usuario, categorias=categorias, cats_dict=cats_dict, mi_url=mi_url, vencimiento=vencimiento)
 
 @app.route('/vendedor/producto/agregar', methods=['POST'])
 @rol_required(['vendedor'])
@@ -1058,6 +1074,41 @@ def vendedor_agregar_producto():
         (session['usuario_id'], request.form.get('nombre', ''), request.form.get('descripcion', ''), 
          float(request.form.get('precio') or 0), int(request.form.get('stock') or 0), 
          cat_nombre, request.form.get('imagen', ''), request.form.get('fotos', '')))
+    db.commit()
+    return redirect(url_for('vendedor_panel'))
+
+@app.route('/vendedor/producto/<int:prod_id>/editar', methods=['POST'])
+@rol_required(['vendedor'])
+def vendedor_editar_producto(prod_id):
+    db = get_db()
+    prod = db.execute("SELECT * FROM productos WHERE id = ? AND vendedor_id = ?", (prod_id, session['usuario_id'])).fetchone()
+    if not prod:
+        return redirect(url_for('vendedor_panel'))
+
+    cat_nombre = (request.form.get('categoria_nombre', '') or '').strip()
+    cat_sub = (request.form.get('categoria_sub', '') or '').strip()
+    if cat_nombre:
+        is_mysql = DB_BACKEND == 'mysql'
+        try:
+            if is_mysql:
+                db.execute("INSERT IGNORE INTO categorias (nombre, subcategoria) VALUES (%s, %s)", (cat_nombre, cat_sub or None))
+            else:
+                db.execute("INSERT OR IGNORE INTO categorias (nombre, subcategoria) VALUES (?, ?)", (cat_nombre, cat_sub or None))
+        except Exception:
+            pass
+    else:
+        cat_nombre = prod['categoria']
+
+    db.execute("""UPDATE productos SET nombre = ?, descripcion = ?, precio = ?, stock = ?,
+            categoria = ?, imagen = ?, fotos = ? WHERE id = ? AND vendedor_id = ?""",
+        (request.form.get('nombre', '') or prod['nombre'],
+         request.form.get('descripcion', '') or prod['descripcion'],
+         float(request.form.get('precio') if request.form.get('precio') else prod['precio']),
+         int(request.form.get('stock') if request.form.get('stock') is not None and request.form.get('stock') != '' else prod['stock']),
+         cat_nombre,
+         request.form.get('imagen', '') or prod['imagen'],
+         request.form.get('fotos', '') or prod['fotos'],
+         prod_id, session['usuario_id']))
     db.commit()
     return redirect(url_for('vendedor_panel'))
 

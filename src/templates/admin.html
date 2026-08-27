@@ -1051,9 +1051,16 @@
 
 function showSection(id) {
 
-    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => {
+        s.classList.remove('active');
+        s.style.display = 'none';
+    });
 
-    document.getElementById('section-' + id).classList.add('active');
+    var target = document.getElementById('section-' + id);
+    if (target) {
+        target.classList.add('active');
+        target.style.display = 'block';
+    }
 
 }
 
@@ -1312,6 +1319,19 @@ function actualizarGaleriaLogo(files) {
     html += '</div></div>';
     galeria.body.innerHTML = html;
 }
+
+// Inicializacion: evitar que se muestren varias secciones al cargar
+(function() {
+    var visibles = 0;
+    document.querySelectorAll('.section').forEach(function(s) {
+        if (s.classList.contains('active')) { visibles++; s.style.display = 'block'; }
+        else { s.style.display = 'none'; }
+    });
+    if (visibles === 0) {
+        var dash = document.getElementById('section-dashboard');
+        if (dash) { dash.classList.add('active'); dash.style.display = 'block'; }
+    }
+})();
 
 </script>
 
