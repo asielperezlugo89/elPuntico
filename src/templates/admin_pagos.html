@@ -105,8 +105,12 @@
 
             <div class="pago-estado">
                 {% if v.pago_hasta %}
-                    {% set fecha_pago = (v.pago_hasta|string)[:10]|replace('-','')|int %}
-                    {% set dias_restantes = (fecha_pago - today_int) if today_int is defined else 999 %}
+                    {% if v.dias_restantes is none %}
+                        {% set fecha_pago = (v.pago_hasta|string)[:10]|replace('-','')|int %}
+                        {% set dias_restantes = (fecha_pago - today_int) if today_int is defined else 999 %}
+                    {% else %}
+                        {% set dias_restantes = v.dias_restantes %}
+                    {% endif %}
                     {% if dias_restantes < 0 %}
                         <div class="pago-badge badge-vencido">Vencida</div>
                         <div class="pago-dias danger">{{ dias_restantes * -1 }} dias vencida</div>

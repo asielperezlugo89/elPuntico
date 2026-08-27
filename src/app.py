@@ -955,6 +955,17 @@ def admin_pagos():
     from datetime import date
     hoy = date.today()
     today_int = int(hoy.strftime('%Y%m%d'))
+    vendedores = [dict(v) for v in vendedores]
+    for v in vendedores:
+        v['dias_restantes'] = None
+        v['dias_vencida'] = None
+        if v['pago_hasta']:
+            f = _parsed_fecha(v['pago_hasta'])
+            if f is not None:
+                diff = (f - hoy).days
+                v['dias_restantes'] = diff
+                if diff < 0:
+                    v['dias_vencida'] = -diff
     return render_template('admin_pagos.html', vendedores=vendedores, config=get_config(),
                            today_int=today_int, now_date=hoy)
 
