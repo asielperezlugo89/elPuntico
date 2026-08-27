@@ -26,6 +26,10 @@
     .btn-vip { background: #6c3483; color: white; }
     .btn-vip:hover { background: #5b2c6f; }
     .btn-vip.off { background: #adb5bd; }
+    .btn-free { background: #6c757d; color: white; }
+    .btn-free:hover { background: #5a6268; }
+    .pago-fecha-form { display: flex; align-items: center; gap: 6px; }
+    .pago-fecha-form input[type="date"] { padding: 6px 8px; border: 1px solid #ddd; border-radius: 5px; font-size: 13px; }
     .stats-top { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 25px; }
     .stat-box { background: white; padding: 20px; border-radius: 10px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
     .stat-box .num { font-size: 28px; font-weight: bold; color: #ff9900; }
@@ -39,33 +43,22 @@
 <div style="max-width:1000px;margin:0 auto;">
     <h2 style="margin-bottom:20px;">Gestion de Pagos - Tiendas</h2>
 
-    {% set total = vendedores|length %}
-    {% set activos = vendedores|selectattr('pago_activo')|list|length %}
-    {% set vencidos = [] %}
-    {% set por_vencer = [] %}
-    {% set hoy_str = '' %}
-    {% for v in vendedores %}
-        {% if v.pago_hasta %}
-            {% set dias = ((v.pago_hasta|string)[:10]|replace('-',''))|int - 20000101 %}
-        {% endif %}
-    {% endfor %}
-
     <div class="stats-top">
         <div class="stat-box">
             <div class="num">{{ vendedores|length }}</div>
             <div class="label">Total Tiendas</div>
         </div>
         <div class="stat-box">
-            <div class="num" style="color:#28a745;">{{ vendedores|selectattr('pago_activo')|list|length }}</div>
-            <div class="label">Al dia</div>
+            <div class="num" style="color:#28a745;">{{ vendedores|selectattr('tiene_pago')|list|length }}</div>
+            <div class="label">Con fecha</div>
         </div>
         <div class="stat-box">
             <div class="num" style="color:#6c3483;">{{ vendedores|selectattr('es_vip')|list|length }}</div>
             <div class="label">VIP</div>
         </div>
         <div class="stat-box">
-            <div class="num" style="color:#dc3545;">{{ vendedores|rejectattr('pago_activo')|list|length }}</div>
-            <div class="label">Vencidas</div>
+            <div class="num" style="color:#6c757d;">{{ vendedores|rejectattr('tiene_pago')|list|length }}</div>
+            <div class="label">Free</div>
         </div>
     </div>
 
@@ -74,15 +67,15 @@
         <select id="filtro-estado" onchange="filtrarVendedores()" style="padding:10px;border:1px solid #ddd;border-radius:8px;">
             <option value="">Todos</option>
             <option value="vip">VIP</option>
-            <option value="activo">Al dia</option>
-            <option value="vencido">Vencidas</option>
+            <option value="activo">Con fecha</option>
+            <option value="vencido">Free</option>
         </select>
     </div>
 
     <div id="lista-vendedores">
     {% for v in vendedores %}
-        {% set pagado = v.pago_activo %}
-        {% set tiene_fecha = v.pago_hasta and v.pago_hasta|string != '' %}
+        {% set pagado = v.tiene_pago %}
+        {% set tiene_fecha = v.tiene_pago %}
         {% if tiene_fecha %}
             {% set fecha_str = (v.pago_hasta|string)[:10] %}
             {% set hoy = now_date if now_date is defined else '' %}
@@ -113,7 +106,6 @@
             <div class="pago-estado">
                 {% if v.pago_hasta %}
                     {% set fecha_pago = (v.pago_hasta|string)[:10]|replace('-','')|int %}
-                    {% set fecha_hoy = today_int if today_int is defined else 0 %}
                     {% set dias_restantes = (fecha_pago - today_int) if today_int is defined else 999 %}
                     {% if dias_restantes < 0 %}
                         <div class="pago-badge badge-vencido">Vencida</div>
@@ -126,15 +118,22 @@
                         <div class="pago-dias ok">{{ dias_restantes }} dias</div>
                     {% endif %}
                 {% else %}
-                    <div class="pago-badge badge-sinpago">Sin pago</div>
+                    <div class="pago-badge badge-sinpago">Free</div>
                     <div class="pago-dias danger">--</div>
                 {% endif %}
             </div>
 
             <div class="pago-acciones">
-                <form method="POST" action="{{ url_for('admin_extender_pago', user_id=v.id) }}" style="display:inline;">
-                    <button type="submit" class="btn-sm btn-extend">+1 Mes</button>
+                <form method="POST" action="{{ url_for('admin_set_fecha_pago', user_id=v.id) }}" class="pago-fecha-form">
+                    <input type="date" name="pago_hasta" value="{{ (v.pago_hasta|string)[:10] if v.pago_hasta else '' }}">
+                    <button type="submit" class="btn-sm btn-extend">Guardar fecha</button>
                 </form>
+                {% if v.pago_hasta %}
+                <form method="POST" action="{{ url_for('admin_set_fecha_pago', user_id=v.id) }}" style="display:inline;">
+                    <input type="hidden" name="pago_hasta" value="">
+                    <button type="submit" class="btn-sm btn-free">Free</button>
+                </form>
+                {% endif %}
                 <a href="{{ url_for('admin_toggle_vip', user_id=v.id) }}" class="btn-sm {{ 'btn-vip' if not v.es_vip else 'btn-vip off' }}">
                     {{ 'Quitar VIP' if v.es_vip else 'Hacer VIP' }}
                 </a>

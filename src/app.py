@@ -945,6 +945,7 @@ def admin_pagos():
     db = get_db()
     vendedores = db.execute("""
         SELECT u.*, 
+            (u.pago_hasta IS NOT NULL) as tiene_pago,
             (SELECT COUNT(*) FROM productos WHERE vendedor_id = u.id AND activo = 1) as num_productos,
             (SELECT COUNT(*) FROM pedidos WHERE vendedor_id = u.id AND estado IN ('confirmado','entregado')) as num_pedidos
         FROM usuarios u 
@@ -972,29 +973,23 @@ def _parsed_fecha(texto):
     except Exception:
         return None
 
-def _sumar_un_mes(fecha):
-    """Suma un mes calendario respetando la longitud real del mes (28/29/30/31)."""
-    import calendar
-    año = fecha.year + (1 if fecha.month == 12 else 0)
-    mes = 1 if fecha.month == 12 else fecha.month + 1
-    ultimo = calendar.monthrange(año, mes)[1]
-    dia = min(fecha.day, ultimo)
-    return fecha.replace(year=año, month=mes, day=dia)
-
-@app.route('/admin/pago/<int:user_id>/extender', methods=['POST'])
+@app.route('/admin/pago/<int:user_id>/set_fecha', methods=['POST'])
 @rol_required(['admin'])
-def admin_extender_pago(user_id):
+def admin_set_fecha_pago(user_id):
+    """Fija la fecha de vencimiento exacta elegida en el calendario (o la deja free si viene vacia)."""
     db = get_db()
-    from datetime import date
-    vendedor = db.execute("SELECT pago_hasta FROM usuarios WHERE id = ?", (user_id,)).fetchone()
-    if vendedor:
-        hoy = date.today()
-        base = _parsed_fecha(vendedor['pago_hasta'])
-        if base is None or base < hoy:
-            base = hoy
-        nueva_fecha = _sumar_un_mes(base)
-        db.execute("UPDATE usuarios SET pago_hasta = ?, pago_activo = 1 WHERE id = ?", (nueva_fecha.isoformat(), user_id))
-        db.commit()
+    vendedor = db.execute("SELECT id FROM usuarios WHERE id = ? AND rol = 'vendedor'", (user_id,)).fetchone()
+    if not vendedor:
+        return redirect(url_for('admin_pagos'))
+    fecha_str = request.form.get('pago_hasta', '').strip()
+    if fecha_str:
+        f = _parsed_fecha(fecha_str)
+        if f is None:
+            return redirect(url_for('admin_pagos'))
+        db.execute("UPDATE usuarios SET pago_hasta = ?, pago_activo = 1 WHERE id = ?", (f.isoformat(), user_id))
+    else:
+        db.execute("UPDATE usuarios SET pago_hasta = NULL, pago_activo = 0 WHERE id = ?", (user_id,))
+    db.commit()
     return redirect(url_for('admin_pagos'))
 
 @app.route('/admin/pago/<user_id>/toggle_vip')
