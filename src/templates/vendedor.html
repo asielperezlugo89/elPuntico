@@ -1020,13 +1020,27 @@
                 <textarea name="descripcion" id="edit-descripcion" rows="3"></textarea>
             </div>
             <div class="form-group">
-                <label>Imagen (URL)</label>
-                <input type="text" name="imagen" id="edit-imagen" placeholder="URL de la imagen">
+                <label>Imagen del producto (URL)</label>
+                <input type="text" name="imagen" id="edit-imagen" placeholder="Pega la URL o usa los botones para subir foto">
+                <div id="edit-img-preview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;"></div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+                    <button type="button" class="btn-main primary sm" onclick="document.getElementById('edit-prod-camara').click()">&#128247; Tomar foto</button>
+                    <button type="button" class="btn-main secondary sm" onclick="document.getElementById('edit-prod-archivo').click()">&#128193; Buscar archivo</button>
+                </div>
+                <p id="edit-prod-foto-ok" style="color:#28a745;font-size:13px;display:none;margin-top:6px;">&#10003; Foto lista</p>
             </div>
             <div class="form-group">
                 <label>Fotos adicionales (URLs separadas por coma)</label>
                 <input type="text" name="fotos" id="edit-fotos" placeholder="URL1, URL2, ...">
+                <div id="edit-fotos-preview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;"></div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+                    <button type="button" class="btn-main primary sm" onclick="document.getElementById('edit-prod-foto-extra').click()">&#128247; Agregar foto</button>
+                </div>
+                <p style="font-size:12px;color:#888;margin-top:6px;">Puedes pegar URLs separadas por coma o usar "Agregar foto" para subir imagenes.</p>
             </div>
+            <input type="file" id="edit-prod-camara" accept="image/*" capture="environment" style="display:none;" onchange="subirFotoEditar(this)">
+            <input type="file" id="edit-prod-archivo" accept="image/*" style="display:none;" onchange="subirFotoEditar(this)">
+            <input type="file" id="edit-prod-foto-extra" accept="image/*" style="display:none;" onchange="subirFotoExtraEditar(this)">
             <div style="display:flex;gap:10px;margin-top:8px;">
                 <button type="submit" class="btn-main success">&#10003; Guardar Cambios</button>
                 <button type="button" class="btn-main secondary" onclick="cerrarModalEditar()">Cancelar</button>
@@ -1053,8 +1067,14 @@ function editarProducto(btn) {
     document.getElementById('edit-stock').value = btn.getAttribute('data-stock');
     document.getElementById('edit-cat').value = btn.getAttribute('data-categoria') || '';
     document.getElementById('edit-descripcion').value = btn.getAttribute('data-descripcion') || '';
-    document.getElementById('edit-imagen').value = btn.getAttribute('data-imagen') || '';
-    document.getElementById('edit-fotos').value = btn.getAttribute('data-fotos') || '';
+    var imgVal = btn.getAttribute('data-imagen') || '';
+    document.getElementById('edit-imagen').value = imgVal;
+    document.getElementById('edit-img-preview').innerHTML = imgVal ? '<img src="' + imgVal + '" style="max-width:160px;max-height:110px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.15);">' : '';
+    var fotVal = btn.getAttribute('data-fotos') || '';
+    document.getElementById('edit-fotos').value = fotVal;
+    var fprev = document.getElementById('edit-fotos-preview');
+    fprev.innerHTML = '';
+    (fotVal ? fotVal.split(',') : []).forEach(function(u) { u = u.trim(); if (u) { var im = document.createElement('img'); im.src = u; im.style.cssText = 'width:80px;height:80px;object-fit:cover;border-radius:8px;'; fprev.appendChild(im); } });
     document.getElementById('modal-editar-producto').style.display = 'flex';
 }
 
@@ -1140,6 +1160,46 @@ function subirFotoExtra(input) {
     }).catch(function() {
         alert('Error al subir foto');
     });
+    input.value = '';
+}
+
+function subirFotoEditar(input) {
+    var file = input.files && input.files[0];
+    if (!file) return;
+    var fd = new FormData();
+    fd.append('file', file);
+    var ok = document.getElementById('edit-prod-foto-ok');
+    if (ok) ok.style.display = 'none';
+    var prev = document.getElementById('edit-img-preview');
+    prev.innerHTML = '<p style="color:#666;font-size:13px;">Subiendo...</p>';
+    fetch('/upload', { method: 'POST', body: fd }).then(function(r) { return r.json(); }).then(function(d) {
+        if (d.success) {
+            document.getElementById('edit-imagen').value = d.path;
+            prev.innerHTML = '<img src="' + d.path + '" style="max-width:160px;max-height:110px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.15);">';
+            if (ok) { ok.textContent = '\u2713 Foto lista: ' + file.name; ok.style.display = 'block'; }
+        } else { prev.innerHTML = ''; alert('No se pudo subir la foto'); }
+    }).catch(function() { prev.innerHTML = ''; alert('Error al subir foto'); });
+    input.value = '';
+}
+
+function subirFotoExtraEditar(input) {
+    var file = input.files && input.files[0];
+    if (!file) return;
+    var fd = new FormData();
+    fd.append('file', file);
+    fetch('/upload', { method: 'POST', body: fd }).then(function(r) { return r.json(); }).then(function(d) {
+        if (d.success) {
+            var cif = document.getElementById('edit-fotos');
+            var actual = cif.value;
+            var nueva = actual ? actual + ', ' + d.path : d.path;
+            cif.value = nueva;
+            var preview = document.getElementById('edit-fotos-preview');
+            var img = document.createElement('img');
+            img.src = d.path;
+            img.style.cssText = 'width:80px;height:80px;object-fit:cover;border-radius:8px;';
+            preview.appendChild(img);
+        } else { alert('No se pudo subir la foto'); }
+    }).catch(function() { alert('Error al subir foto'); });
     input.value = '';
 }
 
