@@ -196,6 +196,9 @@
                 <a href="{{ url_for('admin_panel') }}" class="{{ 'active' if request.endpoint == 'admin_panel' }}">
                     <span class="icon">&#128736;</span> Admin
                 </a>
+                <a href="{{ url_for('admin_pagos') }}" class="{{ 'active' if request.endpoint == 'admin_pagos' }}">
+                    <span class="icon">&#128176;</span> Pagos
+                </a>
                 {% elif session.rol == 'vendedor' %}
                 <a href="{{ url_for('vendedor_panel') }}" class="{{ 'active' if request.endpoint == 'vendedor_panel' }}">
                     <span class="icon">&#128230;</span> Mi Panel

@@ -173,6 +173,9 @@ def init_db():
             entregaGratis INT DEFAULT 0,
             solicitud_vendedor INT DEFAULT 0,
             activo INT DEFAULT 1,
+            pago_hasta DATE DEFAULT NULL,
+            pago_activo INT DEFAULT 1,
+            es_vip INT DEFAULT 0,
             fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4''')
 
@@ -249,6 +252,9 @@ def init_db():
             entregaGratis INTEGER DEFAULT 0,
             solicitud_vendedor INTEGER DEFAULT 0,
             activo INTEGER DEFAULT 1,
+            pago_hasta DATE DEFAULT NULL,
+            pago_activo INTEGER DEFAULT 1,
+            es_vip INTEGER DEFAULT 0,
             fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP
         )''')
 
@@ -933,6 +939,53 @@ def admin_eliminar_categoria(cat_id):
     db.commit()
     return redirect(url_for('admin_panel'))
 
+@app.route('/admin/pagos')
+@rol_required(['admin'])
+def admin_pagos():
+    db = get_db()
+    vendedores = db.execute("""
+        SELECT u.*, 
+            (SELECT COUNT(*) FROM productos WHERE vendedor_id = u.id AND activo = 1) as num_productos,
+            (SELECT COUNT(*) FROM pedidos WHERE vendedor_id = u.id AND estado IN ('confirmado','entregado')) as num_pedidos
+        FROM usuarios u 
+        WHERE u.rol = 'vendedor' 
+        ORDER BY u.es_vip DESC, u.pago_hasta ASC, u.nombre
+    """).fetchall()
+    from datetime import date
+    hoy = date.today()
+    today_int = int(hoy.strftime('%Y%m%d'))
+    return render_template('admin_pagos.html', vendedores=vendedores, config=get_config(),
+                           today_int=today_int, now_date=hoy)
+
+@app.route('/admin/pago/<int:user_id>/extender', methods=['POST'])
+@rol_required(['admin'])
+def admin_extender_pago(user_id):
+    db = get_db()
+    from datetime import datetime, timedelta
+    vendedor = db.execute("SELECT pago_hasta FROM usuarios WHERE id = ?", (user_id,)).fetchone()
+    if vendedor:
+        hoy = datetime.now().date()
+        base = vendedor['pago_hasta'] if vendedor['pago_hasta'] else hoy
+        if isinstance(base, str):
+            base = datetime.strptime(base, '%Y-%m-%d').date()
+        if base < hoy:
+            base = hoy
+        nueva_fecha = base + timedelta(days=30)
+        db.execute("UPDATE usuarios SET pago_hasta = ?, pago_activo = 1 WHERE id = ?", (nueva_fecha.isoformat(), user_id))
+        db.commit()
+    return redirect(url_for('admin_pagos'))
+
+@app.route('/admin/pago/<user_id>/toggle_vip')
+@rol_required(['admin'])
+def admin_toggle_vip(user_id):
+    db = get_db()
+    v = db.execute("SELECT es_vip FROM usuarios WHERE id = ?", (user_id,)).fetchone()
+    if v:
+        nuevo = 0 if v['es_vip'] else 1
+        db.execute("UPDATE usuarios SET es_vip = ? WHERE id = ?", (nuevo, user_id))
+        db.commit()
+    return redirect(url_for('admin_pagos'))
+
 @app.route('/vendedor')
 @rol_required(['vendedor'])
 def vendedor_panel():
@@ -1215,6 +1268,39 @@ def _migrar_fotos_producto():
         print('Migracion fotos producto:', e)
 
 _migrar_fotos_producto()
+
+def _migrar_pago_vip():
+    """Anade columnas pago_hasta, pago_activo, es_vip a usuarios."""
+    try:
+        if DB_BACKEND == 'mysql':
+            conn = _mysql_connect()
+            cur = conn.cursor()
+            for ddl in (
+                "ALTER TABLE usuarios ADD COLUMN pago_hasta DATE DEFAULT NULL",
+                "ALTER TABLE usuarios ADD COLUMN pago_activo INT DEFAULT 1",
+                "ALTER TABLE usuarios ADD COLUMN es_vip INT DEFAULT 0",
+            ):
+                try:
+                    cur.execute(ddl)
+                    conn.commit()
+                except Exception:
+                    pass
+            conn.close()
+        else:
+            conn = sqlite3.connect(DB_NAME)
+            cols = [r[1] for r in conn.execute("PRAGMA table_info(usuarios)").fetchall()]
+            if 'pago_hasta' not in cols:
+                conn.execute("ALTER TABLE usuarios ADD COLUMN pago_hasta DATE DEFAULT NULL")
+            if 'pago_activo' not in cols:
+                conn.execute("ALTER TABLE usuarios ADD COLUMN pago_activo INTEGER DEFAULT 1")
+            if 'es_vip' not in cols:
+                conn.execute("ALTER TABLE usuarios ADD COLUMN es_vip INTEGER DEFAULT 0")
+            conn.commit()
+            conn.close()
+    except Exception as e:
+        print('Migracion pago/vip:', e)
+
+_migrar_pago_vip()
 
 # Inicializa la BD (idempotente: CREATE TABLE IF NOT EXISTS + INSERT OR IGNORE).
 init_db()
