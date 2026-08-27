@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - Categorias{% endblock %}
+
+{% block extra %}
+{% include 'admin_css.html' %}
+{% endblock %}
+
+{% block content %}
+
+<h2>Gestion de Categorias y Subcategorias (Arbol)</h2>
+
+<div class="action-bar">
+    <form method="POST" action="{{ url_for('admin_agregar_categoria') }}" style="display:flex;gap:10px;flex:1;flex-wrap:wrap;">
+        <input type="text" name="nombre" placeholder="Categoria (ej: Hogar)" required style="flex:1;min-width:150px;padding:10px;border:1px solid #ddd;border-radius:5px;">
+        <input type="text" name="subcategoria" placeholder="Subcategoria (ej: Cocina) - opcional" style="flex:1;min-width:150px;padding:10px;border:1px solid #ddd;border-radius:5px;">
+        <button type="submit" class="btn btn-success">Agregar</button>
+    </form>
+</div>
+
+<div style="margin-top:20px;">
+    <style>
+        .tree-cat { background:white; border-radius:10px; margin-bottom:15px; overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
+        .tree-cat-header { background:#ff9900; color:white; padding:12px 15px; font-weight:bold; display:flex; justify-content:space-between; align-items:center; }
+        .tree-sub { padding:10px 15px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center; }
+        .tree-sub:last-child { border-bottom:none; }
+        .tree-sub:hover { background:#f8f9fa; }
+        .tree-sub span { color:#333; }
+        .tree-arrow { color:#ff9900; margin-right:8px; }
+    </style>
+    <div id="categoria-tree"></div>
+    <script>
+    const cats = {{ categorias|tojson }};
+    const tree = {};
+    cats.forEach(c => {
+        if (!tree[c.categoria]) tree[c.categoria] = [];
+        if (c.subcategoria) tree[c.categoria].push(c.subcategoria);
+    });
+    let html = '';
+    Object.keys(tree).sort().forEach(cat => {
+        html += '<div class="tree-cat">';
+        html += '<div class="tree-cat-header">';
+        html += '<span>' + cat + '</span>';
+        html += '<a href="/admin/categoria/' + encodeURIComponent(cat) + '/eliminar" style="background:white;color:#dc3545;padding:5px 10px;border-radius:5px;text-decoration:none;font-size:12px;" onclick="return confirm(\'Eliminar categoria + subcategorias?\')">Eliminar Todo</a>';
+        html += '</div>';
+        html += '<div class="tree-sub">';
+        html += '<span><span class="tree-arrow">▸</span>Categoria principal</span>';
+        html += '<a href="/admin/categoria/' + encodeURIComponent(cat) + '/eliminar?sub=_none_" style="color:#dc3545;text-decoration:none;font-size:12px;">X</a>';
+        html += '</div>';
+        tree[cat].forEach(sub => {
+            html += '<div class="tree-sub">';
+            html += '<span><span class="tree-arrow">↳</span>' + sub + '</span>';
+            html += '<a href="/admin/categoria/' + encodeURIComponent(cat) + '/eliminar?sub=' + encodeURIComponent(sub) + '" style="color:#dc3545;text-decoration:none;font-size:12px;">X</a>';
+            html += '</div>';
+        });
+        html += '</div>';
+    });
+    if (Object.keys(tree).length === 0) {
+        html += '<p style="text-align:center;color:#666;padding:40px;background:white;border-radius:10px;">No hay categorias. Agrega una arriba.</p>';
+    }
+    document.getElementById('categoria-tree').innerHTML = html;
+    </script>
+</div>
+
+{% endblock %}

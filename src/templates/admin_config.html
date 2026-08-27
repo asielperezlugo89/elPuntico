@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - Configuracion{% endblock %}
+
+{% block extra %}
+{% include 'admin_css.html' %}
+{% endblock %}
+
+{% block content %}
+
+<h2>Configuracion del Sistema</h2>
+
+<form method="POST" action="{{ url_for('admin_config') }}">
+<div class="panel">
+    <h3>General</h3>
+    <div class="form-row">
+        <div class="form-group">
+            <label>Nombre del sitio</label>
+            <input type="text" name="nombre_sitio" value="{{ config.nombre_sitio }}">
+        </div>
+        <div class="form-group" style="grid-column: span 2;">
+            <label>Logo del sitio</label>
+            <div style="display:flex;align-items:center;gap:15px;">
+                <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#667eea,#ff9900);display:flex;align-items:center;justify-content:center;color:white;font-size:20px;font-weight:bold;overflow:hidden;flex-shrink:0;">
+                    {% if config.logo_sitio %}
+                    <img src="{{ config.logo_sitio }}" style="width:100%;height:100%;object-fit:cover;">
+                    {% else %}
+                    {{ config.nombre_sitio[:2] if config else 'MT' }}
+                    {% endif %}
+                </div>
+                <div style="flex:1;">
+                    <input type="text" name="logo_sitio" id="logo_sitio-input" value="{{ config.logo_sitio }}" placeholder="URL o selecciona archivo...">
+                    <div style="margin-top:5px;display:flex;gap:5px;">
+                        <button type="button" class="btn btn-secondary" onclick="abrirSelectorLogo()">Seleccionar archivo</button>
+                        {% if config.logo_sitio %}
+                        <button type="button" class="btn btn-danger" onclick="document.getElementById('logo_sitio-input').value='';this.closest('div').previousElementSibling.querySelector('img')?.remove();" style="font-size:12px;">Quitar</button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+        <div class="form-group">
+            <label>Moneda</label>
+            <select name="moneda">
+                <option value="CUP" {% if config.moneda == 'CUP' %}selected{% endif %}>CUP</option>
+                <option value="USD" {% if config.moneda == 'USD' %}selected{% endif %}>USD</option>
+                <option value="EUR" {% if config.moneda == 'EUR' %}selected{% endif %}>EUR</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Simbolo moneda</label>
+            <input type="text" name="simbolo_moneda" value="{{ config.simbolo_moneda }}">
+        </div>
+    </div>
+</div>
+
+<div class="panel">
+    <h3>Colores del tema</h3>
+    <div class="form-row">
+        <div class="form-group">
+            <label>Color primario</label>
+            <input type="color" name="color_primario" value="{{ config.color_primario }}">
+        </div>
+        <div class="form-group">
+            <label>Color secundario</label>
+            <input type="color" name="color_secundario" value="{{ config.color_secundario }}">
+        </div>
+        <div class="form-group">
+            <label>Color texto</label>
+            <input type="color" name="color_texto" value="{{ config.color_texto }}">
+        </div>
+        <div class="form-group">
+            <label>Color fondo</label>
+            <input type="color" name="color_fondo" value="{{ config.color_fondo }}">
+        </div>
+    </div>
+</div>
+
+<div class="panel">
+    <h3>Banner Principal</h3>
+    <div class="form-row">
+        <div class="form-group">
+            <label>Mostrar banner</label>
+            <select name="mostrar_banner">
+                <option value="1" {% if config.mostrar_banner == '1' %}selected{% endif %}>Si</option>
+                <option value="0" {% if config.mostrar_banner == '0' %}selected{% endif %}>No</option>
+            </select>
+        </div>
+        <div class="form-group" style="grid-column: span 2;">
+            <label>Imagen banner</label>
+            <input type="text" name="banner_principal" id="banner1-input" value="{{ config.banner_principal }}" placeholder="URL o selecciona archivo...">
+            <button type="button" class="btn btn-secondary" onclick="abrirSelectorBanner('banner1')" style="margin-top:5px;">Seleccionar archivo local</button>
+            <div id="banner1-preview" style="margin-top:5px;"></div>
+    {% if config.banner_principal %}
+    <script>document.getElementById('banner1-preview').innerHTML = '<img src="{{ config.banner_principal }}" style="max-width:200px;max-height:80px;border-radius:5px;">';</script>
+    {% endif %}
+        </div>
+    </div>
+    <div class="form-row">
+        <div class="form-group" style="grid-column: span 3;">
+            <label>Imagen banner secundario</label>
+            <input type="text" name="banner_secundario" id="banner2-input" value="{{ config.banner_secundario }}" placeholder="URL o selecciona archivo...">
+            <button type="button" class="btn btn-secondary" onclick="abrirSelectorBanner('banner2')" style="margin-top:5px;">Seleccionar archivo local</button>
+            <div id="banner2-preview" style="margin-top:5px;"></div>
+    {% if config.banner_secundario %}
+    <script>document.getElementById('banner2-preview').innerHTML = '<img src="{{ config.banner_secundario }}" style="max-width:200px;max-height:80px;border-radius:5px;">';</script>
+    {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="panel">
+    <h3>Contacto</h3>
+    <div class="form-row">
+        <div class="form-group">
+            <label>Telefono</label>
+            <input type="text" name="telefono_contacto" value="{{ config.telefono_contacto }}">
+        </div>
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" name="email_contacto" value="{{ config.email_contacto }}">
+        </div>
+        <div class="form-group">
+            <label>Direccion</label>
+            <input type="text" name="direccion_sitio" value="{{ config.direccion_sitio }}">
+        </div>
+    </div>
+</div>
+
+<button type="submit" class="btn btn-primary">Guardar Configuracion</button>
+</form>
+
+<div id="modal-img" class="modal">
+    <div class="modal-content" style="max-width:700px;">
+        <h3>Seleccionar Imagen <span style="float:right;cursor:pointer;" onclick="cerrarModalImgBanner()">✕</span></h3>
+        <input type="file" id="archivo-banner" accept="image/*" style="display:none;" onchange="subirArchivoBanner(this)">
+        <input type="file" id="banner-camara" accept="image/*" capture="environment" style="display:none;" onchange="subirArchivoBanner(this)">
+        <button type="button" class="btn btn-success" onclick="document.getElementById('banner-camara').click()" style="margin-bottom:10px;">📷 Tomar foto</button>
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('archivo-banner').click()" style="margin-bottom:10px;">🖼️ Elegir archivo</button>
+        <iframe src="" id="img-iframe" style="width:100%;height:250px;border:1px solid #ddd;border-radius:5px;" onload="actualizarGaleriaBanner([])"></iframe>
+    </div>
+</div>
+
+<script>
+function abrirSelectorBanner(tipo) {
+    bannerActual = tipo;
+    document.getElementById('modal-img').classList.add('active');
+    fetch('/uploads').then(r => r.json()).then(files => {
+        actualizarGaleriaBanner(files);
+    });
+}
+
+function cerrarModalImgBanner() {
+    document.getElementById('modal-img').classList.remove('active');
+}
+
+function seleccionarBannerImg(src) {
+    document.getElementById(bannerActual + '-input').value = src;
+    document.getElementById(bannerActual + '-preview').innerHTML = '<img src="' + src + '" style="max-width:200px;max-height:80px;border-radius:5px;">';
+    cerrarModalImgBanner();
+}
+
+function seleccionarYGuardarBanner(url) {
+    let formData = new FormData();
+    formData.append('url', url);
+    fetch('/upload', {method:'POST', body:formData}).then(r => r.json()).then(data => {
+        if (data.success) seleccionarBannerImg(data.path);
+        else alert('No se pudo descargar');
+    });
+}
+
+function subirArchivoBanner(input) {
+    let file = input.files[0];
+    if (!file) return;
+    let formData = new FormData();
+    formData.append('file', file);
+    fetch('/upload', {method:'POST', body:formData}).then(r => r.json()).then(data => {
+        if (data.success) {
+            seleccionarBannerImg(data.path);
+            fetch('/uploads').then(r => r.json()).then(files => {
+                actualizarGaleriaBanner(files);
+            });
+        }
+    });
+    input.value = '';
+}
+
+function actualizarGaleriaBanner(files) {
+    let galeria = document.getElementById('img-iframe').contentWindow.document;
+    let html = '<div style="padding:10px;">';
+    html += '<p style="margin-bottom:10px;font-weight:bold;">Pegar URL para descargar:</p>';
+    html += '<div style="display:flex;gap:5px;margin-bottom:15px;">';
+    html += '<input type="text" id="url-input" placeholder="https://...jpg" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:5px;">';
+    html += '<button type="button" class="btn btn-primary" onclick="parent.seleccionarYGuardarBanner(document.getElementById(\'url-input\').value)">Descargar</button>';
+    html += '</div>';
+    html += '<p style="margin-bottom:10px;font-weight:bold;">Archivos locales:</p>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px;">';
+    if (files.length === 0) {
+        html += '<p style="padding:20px;color:#666;grid-column:span 3;">No hay imagenes.</p>';
+    } else {
+        files.forEach(f => {
+            html += '<img src="/img/' + f + '" style="width:100px;height:100px;object-fit:cover;cursor:pointer;border-radius:5px;border:2px solid transparent;" onmouseover="this.style.borderColor=\'#ff9900\'" onmouseout="this.style.borderColor=\'transparent\'" onclick="parent.seleccionarBannerImg(\'/img/' + f + '\')" title="' + f + '">';
+        });
+    }
+    html += '</div></div>';
+    galeria.body.innerHTML = html;
+}
+
+let bannerActual = '';
+let logoActual = '';
+
+function abrirSelectorLogo() {
+    logoActual = 'logo_sitio';
+    document.getElementById('modal-img').classList.add('active');
+    fetch('/uploads').then(r => r.json()).then(files => {
+        actualizarGaleriaLogo(files);
+    });
+}
+
+function seleccionarLogoImg(src) {
+    document.getElementById('logo_sitio-input').value = src;
+    cerrarModalImgBanner();
+}
+
+function seleccionarYGuardarLogo(url) {
+    let formData = new FormData();
+    formData.append('url', url);
+    fetch('/upload', {method:'POST', body:formData}).then(r => r.json()).then(data => {
+        if (data.success) seleccionarLogoImg(data.path);
+        else alert('No se pudo descargar');
+    });
+}
+
+function subirArchivoLogo(input) {
+    let file = input.files[0];
+    if (!file) return;
+    let formData = new FormData();
+    formData.append('file', file);
+    fetch('/upload', {method:'POST', body:formData}).then(r => r.json()).then(data => {
+        if (data.success) {
+            seleccionarLogoImg(data.path);
+        }
+    });
+    input.value = '';
+}
+
+function actualizarGaleriaLogo(files) {
+    let galeria = document.getElementById('img-iframe').contentWindow.document;
+    let html = '<div style="padding:10px;">';
+    html += '<p style="margin-bottom:10px;font-weight:bold;">Pegar URL para descargar:</p>';
+    html += '<div style="display:flex;gap:5px;margin-bottom:15px;">';
+    html += '<input type="text" id="url-input-logo" placeholder="https://...jpg" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:5px;">';
+    html += '<button type="button" class="btn btn-primary" onclick="parent.seleccionarYGuardarLogo(document.getElementById(\'url-input-logo\').value)">Descargar</button>';
+    html += '</div>';
+    html += '<p style="margin-bottom:10px;font-weight:bold;">Archivos locales:</p>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px;">';
+    if (files.length === 0) {
+        html += '<p style="padding:20px;color:#666;grid-column:span 3;">No hay imagenes.</p>';
+    } else {
+        files.forEach(f => {
+            html += '<img src="/img/' + f + '" style="width:100px;height:100px;object-fit:cover;cursor:pointer;border-radius:5px;border:2px solid transparent;" onmouseover="this.style.borderColor=\'#ff9900\'" onmouseout="this.style.borderColor=\'transparent\'" onclick="parent.seleccionarLogoImg(\'/img/' + f + '\')" title="' + f + '">';
+        });
+    }
+    html += '</div></div>';
+    galeria.body.innerHTML = html;
+}
+</script>
+
+{% endblock %}

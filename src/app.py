@@ -723,6 +723,40 @@ def admin_panel():
     
     return render_template('admin.html', usuarios=usuarios, productos=productos, pedidos=pedidos, categorias=categorias_json, stats=stats, config=config)
 
+@app.route('/admin/usuarios')
+@rol_required(['admin'])
+def admin_usuarios():
+    db = get_db()
+    usuarios = db.execute("SELECT * FROM usuarios WHERE rol != 'admin' ORDER BY id DESC").fetchall()
+    return render_template('admin_usuarios.html', usuarios=usuarios, config=get_config())
+
+@app.route('/admin/productos')
+@rol_required(['admin'])
+def admin_productos():
+    db = get_db()
+    productos = db.execute("SELECT p.*, u.nombre as vendedor_nombre FROM productos p JOIN usuarios u ON p.vendedor_id = u.id ORDER BY p.id DESC").fetchall()
+    return render_template('admin_productos.html', productos=productos, config=get_config())
+
+@app.route('/admin/pedidos')
+@rol_required(['admin'])
+def admin_pedidos():
+    db = get_db()
+    pedidos = db.execute("SELECT pe.*, u.nombre as vendedor_nombre, c.nombre as cliente_nombre FROM pedidos pe JOIN usuarios u ON pe.vendedor_id = u.id JOIN usuarios c ON pe.cliente_id = c.id ORDER BY pe.id DESC").fetchall()
+    return render_template('admin_pedidos.html', pedidos=pedidos, config=get_config())
+
+@app.route('/admin/categorias')
+@rol_required(['admin'])
+def admin_categorias():
+    db = get_db()
+    categorias = db.execute("""
+    SELECT c.nombre as categoria, c.subcategoria, 
+           (SELECT COUNT(*) FROM productos WHERE categoria = c.nombre AND (subcategoria = c.subcategoria OR c.subcategoria IS NULL)) as productos_count 
+    FROM categorias c 
+    ORDER BY c.nombre, c.subcategoria
+    """).fetchall()
+    categorias_json = [dict(c) for c in categorias]
+    return render_template('admin_categorias.html', categorias=categorias_json, config=get_config())
+
 @app.route('/admin/usuario/<int:user_id>/editar', methods=['POST'])
 @rol_required(['admin'])
 def admin_editar_usuario(user_id):
@@ -747,7 +781,7 @@ def admin_editar_usuario(user_id):
         if user and not user['tienda_nombre']:
             db.execute("UPDATE usuarios SET tienda_nombre = ? WHERE id = ?", (nombre, user_id))
     db.commit()
-    return redirect(url_for('admin_panel'))
+    return redirect(url_for('admin_usuarios'))
 
 @app.route('/admin/usuario/crear', methods=['POST'])
 @rol_required(['admin'])
@@ -761,7 +795,7 @@ def admin_crear_usuario():
     rol = request.form.get('rol', 'cliente')
     
     if db.execute("SELECT id FROM usuarios WHERE email = ?", (email,)).fetchone():
-        return redirect(url_for('admin_panel'))
+        return redirect(url_for('admin_usuarios'))
     
     db.execute("INSERT INTO usuarios (email, password, nombre, telefono, direccion, rol, tienda_nombre) VALUES (?, ?, ?, ?, ?, ?, ?)",
         (email, hash_password(password), nombre, telefono, direccion, rol, nombre if rol == 'vendedor' else None))
@@ -769,7 +803,7 @@ def admin_crear_usuario():
         slug = generar_slug(db, nombre)
         db.execute("UPDATE usuarios SET slug = ? WHERE email = ?", (slug, email))
     db.commit()
-    return redirect(url_for('admin_panel'))
+    return redirect(url_for('admin_usuarios'))
 
 @app.route('/admin/usuario/<int:user_id>/estado')
 @rol_required(['admin'])
@@ -780,7 +814,7 @@ def admin_cambiar_estado_usuario(user_id):
         nuevo_estado = 0 if user['activo'] else 1
         db.execute("UPDATE usuarios SET activo = ? WHERE id = ?", (nuevo_estado, user_id))
         db.commit()
-    return redirect(url_for('admin_panel'))
+    return redirect(url_for('admin_usuarios'))
 
 @app.route('/admin/usuario/<int:user_id>/eliminar')
 @rol_required(['admin'])
@@ -794,7 +828,7 @@ def admin_eliminar_usuario(user_id):
     db.execute("DELETE FROM pedidos WHERE cliente_id = ? OR vendedor_id = ?", (user_id, user_id))
     db.execute("DELETE FROM usuarios WHERE id = ?", (user_id,))
     db.commit()
-    return redirect(url_for('admin_panel'))
+    return redirect(url_for('admin_usuarios'))
 
 @app.route('/admin/producto/<int:prod_id>/toggle')
 @rol_required(['admin'])
@@ -802,7 +836,7 @@ def admin_toggle_producto(prod_id):
     db = get_db()
     db.execute("UPDATE productos SET activo = CASE WHEN activo = 1 THEN 0 ELSE 1 END WHERE id = ?", (prod_id,))
     db.commit()
-    return redirect(url_for('admin_panel'))
+    return redirect(url_for('admin_productos'))
 
 @app.route('/admin/producto/<int:prod_id>/eliminar')
 @rol_required(['admin'])
@@ -811,7 +845,7 @@ def admin_eliminar_producto(prod_id):
     db.execute("DELETE FROM pedido_items WHERE producto_id = ?", (prod_id,))
     db.execute("DELETE FROM productos WHERE id = ?", (prod_id,))
     db.commit()
-    return redirect(url_for('admin_panel'))
+    return redirect(url_for('admin_productos'))
 
 def _ajustar_stock_pedido(db, pedido_id, devolver):
     """Devuelve (True) o vuelve a descontar (False) el stock de los items de un pedido."""
@@ -882,7 +916,7 @@ def admin_cambiar_pedido(pedido_id, estado):
             _ajustar_stock_pedido(db, pedido_id, False)
     db.execute("UPDATE pedidos SET estado = ? WHERE id = ?", (estado, pedido_id))
     db.commit()
-    return redirect(url_for('admin_panel'))
+    return redirect(url_for('admin_pedidos'))
 
 @app.route('/admin/pedido/<int:pedido_id>/eliminar')
 @rol_required(['admin'])
@@ -891,11 +925,13 @@ def admin_eliminar_pedido(pedido_id):
     db.execute("DELETE FROM pedido_items WHERE pedido_id = ?", (pedido_id,))
     db.execute("DELETE FROM pedidos WHERE id = ?", (pedido_id,))
     db.commit()
-    return redirect(url_for('admin_panel'))
+    return redirect(url_for('admin_pedidos'))
 
-@app.route('/admin/config', methods=['POST'])
+@app.route('/admin/config', methods=['GET', 'POST'])
 @rol_required(['admin'])
 def admin_config():
+    if request.method == 'GET':
+        return render_template('admin_config.html', config=get_config())
     db = get_db()
     is_mysql = DB_BACKEND == 'mysql'
     for key in request.form:
@@ -905,7 +941,7 @@ def admin_config():
         else:
             db.execute("INSERT OR REPLACE INTO config (clave, valor) VALUES (?, ?)", (key, val))
     db.commit()
-    return redirect(url_for('admin_panel'))
+    return redirect(url_for('admin_config'))
 
 @app.route('/admin/categoria', methods=['POST'])
 @rol_required(['admin'])
@@ -918,7 +954,7 @@ def admin_agregar_categoria():
         db.commit()
     except:
         pass
-    return redirect(url_for('admin_panel'))
+    return redirect(url_for('admin_categorias'))
 
 @app.route('/admin/categoria/<string:cat_id>/eliminar')
 @rol_required(['admin'])
@@ -937,7 +973,7 @@ def admin_eliminar_categoria(cat_id):
         db.execute("DELETE FROM categorias WHERE nombre = ?", (cat_id,))
     
     db.commit()
-    return redirect(url_for('admin_panel'))
+    return redirect(url_for('admin_categorias'))
 
 @app.route('/admin/pagos')
 @rol_required(['admin'])

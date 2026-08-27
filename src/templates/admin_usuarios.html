@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - Usuarios{% endblock %}
+
+{% block extra %}
+{% include 'admin_css.html' %}
+{% endblock %}
+
+{% block content %}
+
+<h2>Gestion de Usuarios</h2>
+
+<div class="action-bar">
+    <input type="text" class="search-box" placeholder="Buscar usuario..." onkeyup="filtrarTabla('tabla-usuarios', 0, this.value)">
+    <button class="btn btn-primary" onclick="abrirModal('modal-usuario')">+ Nuevo Usuario</button>
+</div>
+
+<table id="tabla-usuarios">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Email</th>
+            <th>Telefono</th>
+            <th>Rol</th>
+            <th>Direccion</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for u in usuarios %}
+        <tr>
+            <td>{{ u.id }}</td>
+            <td>{{ u.nombre }}</td>
+            <td>{{ u.email }}</td>
+            <td>{{ u.telefono or '-' }}</td>
+            <td><span class="badge {% if u.rol == 'admin' %}badge-danger{% elif u.rol == 'vendedor' %}badge-info{% else %}badge-success{% endif %}">{{ u.rol }}</span></td>
+            <td>{{ u.direccion or '-' }}</td>
+            <td>{{ 'Activo' if u.activo else 'Inactivo' }}</td>
+            <td class="table-actions">
+                <button class="btn btn-warning" onclick="editarUsuario({{ u.id }}, '{{ u.nombre }}', '{{ u.email }}', '{{ u.telefono or '' }}', '{{ u.direccion or '' }}', {{ u.activo|int }}, '{{ u.rol }}')">Editar</button>
+                <a href="{{ url_for('admin_cambiar_estado_usuario', user_id=u.id) }}" class="btn btn-{{ 'danger' if u.activo else 'success' }}">{{ 'Desactivar' if u.activo else 'Activar' }}</a>
+                <a href="{{ url_for('admin_eliminar_usuario', user_id=u.id) }}" class="btn btn-danger" onclick="return confirm('ELIMINAR usuario? Esta accion no se puede deshacer.')">Eliminar</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- MODAL NUEVO USUARIO -->
+<div id="modal-usuario" class="modal">
+    <div class="modal-content">
+        <h3>Nuevo Usuario</h3>
+        <form method="POST" action="{{ url_for('admin_crear_usuario') }}">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Nombre</label>
+                    <input type="text" name="nombre" required>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="text" name="password" required>
+                </div>
+                <div class="form-group">
+                    <label>Telefono</label>
+                    <input type="text" name="telefono">
+                </div>
+                <div class="form-group">
+                    <label>Direccion</label>
+                    <input type="text" name="direccion">
+                </div>
+                <div class="form-group">
+                    <label>Rol</label>
+                    <select name="rol">
+                        <option value="cliente">Cliente</option>
+                        <option value="vendedor">Vendedor</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-success">Crear Usuario</button>
+            <button type="button" class="btn" onclick="cerrarModal('modal-usuario')">Cancelar</button>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL EDITAR USUARIO -->
+<div id="modal-editar" class="modal">
+    <div class="modal-content">
+        <h3>Editar Usuario</h3>
+        <form method="POST" action="{{ url_for('admin_editar_usuario', user_id=0) }}" id="form-editar">
+            <input type="hidden" name="user_id" id="edit_user_id">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Nombre</label>
+                    <input type="text" name="nombre" id="edit_nombre" required>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="email" id="edit_email" required>
+                </div>
+                <div class="form-group">
+                    <label>Telefono</label>
+                    <input type="text" name="telefono" id="edit_telefono">
+                </div>
+                <div class="form-group">
+                    <label>Direccion</label>
+                    <input type="text" name="direccion" id="edit_direccion">
+                </div>
+                <div class="form-group">
+                    <label>Rol</label>
+                    <select name="rol" id="edit_rol">
+                        <option value="cliente">Cliente</option>
+                        <option value="vendedor">Vendedor</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="activo" id="edit_activo" value="1"> Usuario Activo
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>Nueva Contrasena (opcional)</label>
+                    <input type="text" name="password_nueva" id="edit_password" placeholder="Dejar vacio para mantener la actual" autocomplete="off">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+            <button type="button" class="btn" onclick="cerrarModal('modal-editar')">Cancelar</button>
+        </form>
+    </div>
+</div>
+
+<script>
+function abrirModal(id) {
+    document.getElementById(id).classList.add('active');
+}
+
+function cerrarModal(id) {
+    document.getElementById(id).classList.remove('active');
+}
+
+function editarUsuario(id, nombre, email, telefono, direccion, activo, rol) {
+    document.getElementById('edit_user_id').value = id;
+    document.getElementById('edit_nombre').value = nombre;
+    document.getElementById('edit_email').value = email;
+    document.getElementById('edit_telefono').value = telefono;
+    document.getElementById('edit_direccion').value = direccion;
+    document.getElementById('edit_activo').checked = activo === 1;
+    document.getElementById('edit_rol').value = rol;
+    document.getElementById('form-editar').action = '/admin/usuario/' + id + '/editar';
+    abrirModal('modal-editar');
+}
+
+function filtrarTabla(tablaId, columna, texto) {
+    texto = texto.toLowerCase();
+    var tabla = document.getElementById(tablaId);
+    var filas = tabla.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    for (var i = 0; i < filas.length; i++) {
+        var celda = filas[i].getElementsByTagName('td')[columna];
+        if (celda) {
+            var textoCelda = celda.textContent || celda.innerText;
+            filas[i].style.display = textoCelda.toLowerCase().indexOf(texto) > -1 ? '' : 'none';
+        }
+    }
+}
+</script>
+{% endblock %}

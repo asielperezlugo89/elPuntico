@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - Productos{% endblock %}
+
+{% block extra %}
+{% include 'admin_css.html' %}
+{% endblock %}
+
+{% block content %}
+
+<h2>Gestion de Productos</h2>
+
+<div class="action-bar">
+    <input type="text" class="search-box" placeholder="Buscar producto..." onkeyup="filtrarTabla('tabla-productos', 1, this.value)">
+</div>
+
+<table id="tabla-productos">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Producto</th>
+            <th>Vendedor</th>
+            <th>Categoria</th>
+            <th>Precio</th>
+            <th>Stock</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in productos %}
+        <tr>
+            <td>{{ p.id }}</td>
+            <td>
+                <strong>{{ p.nombre }}</strong><br>
+                <small>{{ p.descripcion or '' }}</small>
+            </td>
+            <td>{{ p.vendedor_nombre }}</td>
+            <td>{{ p.categoria }}</td>
+            <td>${{ "%.0f"|format(p.precio) }}</td>
+            <td class="{% if p.stock < 5 %}text-danger{% endif %}">{{ p.stock }}</td>
+            <td>{{ 'Activo' if p.activo else 'Inactivo' }}</td>
+            <td class="table-actions">
+                <a href="{{ url_for('admin_toggle_producto', prod_id=p.id) }}" class="btn btn-{{ 'warning' if p.activo else 'success' }}">{{ 'Desactivar' if p.activo else 'Activar' }}</a>
+                <a href="{{ url_for('admin_eliminar_producto', prod_id=p.id) }}" class="btn btn-danger" onclick="return confirm('ELIMINAR producto?')">Eliminar</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<script>
+function filtrarTabla(tablaId, columna, texto) {
+    texto = texto.toLowerCase();
+    var tabla = document.getElementById(tablaId);
+    var filas = tabla.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    for (var i = 0; i < filas.length; i++) {
+        var celda = filas[i].getElementsByTagName('td')[columna];
+        if (celda) {
+            var textoCelda = celda.textContent || celda.innerText;
+            filas[i].style.display = textoCelda.toLowerCase().indexOf(texto) > -1 ? '' : 'none';
+        }
+    }
+}
+</script>
+
+{% endblock %}

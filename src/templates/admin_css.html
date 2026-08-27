@@ -1,0 +1,42 @@
+<style>
+    .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
+    .dash-card { background: white; padding: 20px; border-radius: 10px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.2s; }
+    .dash-card:hover { transform: translateY(-5px); }
+    .dash-card .icon { font-size: 40px; margin-bottom: 10px; }
+    .dash-card .title { font-size: 18px; font-weight: bold; color: #333; }
+    .dash-card .count { font-size: 32px; color: #ff9900; font-weight: bold; }
+    .dash-card .subtitle { font-size: 12px; color: #666; }
+    .section { display: none; }
+    .section.active { display: block; }
+    .action-bar { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+    .search-box { flex: 1; min-width: 200px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+    .badge { padding: 3px 8px; border-radius: 10px; font-size: 12px; }
+    .badge-warning { background: #ffc107; color: #333; }
+    .badge-success { background: #28a745; color: white; }
+    .badge-danger { background: #dc3545; color: white; }
+    .badge-info { background: #17a2b8; color: white; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+    .modal.active { display: flex; }
+    .modal-content { background: white; padding: 30px; border-radius: 10px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; }
+    .modal h3 { margin-bottom: 20px; color: #333; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    .form-row .form-group { grid-column: span 2; }
+    .tree-cat { background: white; padding: 10px 15px; border-radius: 8px; margin-bottom: 5px; }
+    .tree-cat-header { display: flex; justify-content: space-between; align-items: center; font-weight: bold; margin-bottom: 5px; }
+    .tree-sub { display: flex; justify-content: space-between; align-items: center; padding: 5px 10px; color: #666; font-size: 14px; }
+    @media (max-width: 600px) {
+        .form-row { grid-template-columns: 1fr; }
+        .form-row .form-group { grid-column: span 1; }
+        .dashboard-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .dash-card { padding: 12px; }
+        .dash-card .icon { font-size: 28px; }
+        .dash-card .title { font-size: 14px; }
+        .dash-card .count { font-size: 24px; }
+        .modal-content { padding: 15px; }
+        .table-actions a, .table-actions button { display: block; margin-bottom: 5px; }
+    }
+    .quick-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .quick-actions .btn { font-size: 12px; padding: 5px 10px; }
+    .table-actions { display: flex; gap: 5px; flex-wrap: wrap; }
+    .table-actions .btn { padding: 5px 10px; font-size: 12px; }
+</style>

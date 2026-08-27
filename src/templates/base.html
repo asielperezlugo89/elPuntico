@@ -195,6 +195,21 @@
                 <a href="{{ url_for('admin_panel') }}" class="{{ 'active' if request.endpoint == 'admin_panel' }}">
                     <span class="icon">&#128736;</span> Admin
                 </a>
+                <a href="{{ url_for('admin_usuarios') }}" class="{{ 'active' if request.endpoint == 'admin_usuarios' }}">
+                    <span class="icon">&#128101;</span> Usuarios
+                </a>
+                <a href="{{ url_for('admin_productos') }}" class="{{ 'active' if request.endpoint == 'admin_productos' }}">
+                    <span class="icon">&#128230;</span> Productos
+                </a>
+                <a href="{{ url_for('admin_pedidos') }}" class="{{ 'active' if request.endpoint == 'admin_pedidos' }}">
+                    <span class="icon">&#128722;</span> Pedidos
+                </a>
+                <a href="{{ url_for('admin_categorias') }}" class="{{ 'active' if request.endpoint == 'admin_categorias' }}">
+                    <span class="icon">&#128506;</span> Categorias
+                </a>
+                <a href="{{ url_for('admin_config') }}" class="{{ 'active' if request.endpoint == 'admin_config' }}">
+                    <span class="icon">&#9881;</span> Config
+                </a>
                 <a href="{{ url_for('admin_pagos') }}" class="{{ 'active' if request.endpoint == 'admin_pagos' }}">
                     <span class="icon">&#128176;</span> Pagos
                 </a>

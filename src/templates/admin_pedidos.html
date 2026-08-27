@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - Pedidos{% endblock %}
+
+{% block extra %}
+{% include 'admin_css.html' %}
+{% endblock %}
+
+{% block content %}
+
+<h2>Gestion de Pedidos</h2>
+
+<div class="action-bar">
+    <input type="text" class="search-box" placeholder="Buscar pedido..." onkeyup="filtrarTabla('tabla-pedidos', 0, this.value)">
+</div>
+
+<table id="tabla-pedidos">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Cliente</th>
+            <th>Vendedor</th>
+            <th>Total</th>
+            <th>Envío</th>
+            <th>Estado</th>
+            <th>Fecha</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for pe in pedidos %}
+        <tr>
+            <td>#{{ pe.id }}</td>
+            <td>{{ pe.cliente_nombre }}</td>
+            <td>{{ pe.vendedor_nombre }}</td>
+            <td>${{ "%.0f"|format(pe.total + pe.delivery) }}</td>
+            <td>${{ "%.0f"|format(pe.delivery) }}</td>
+            <td><span class="badge badge-{% if pe.estado == 'pendiente' %}warning{% elif pe.estado == 'confirmado' %}info{% elif pe.estado == 'entregado' %}success{% else %}danger{% endif %}">{{ pe.estado }}</span></td>
+            <td>{{ pe.fecha_pedido[:16] }}</td>
+            <td class="table-actions">
+                {% if pe.estado == 'pendiente' %}
+                <a href="{{ url_for('admin_cambiar_pedido', pedido_id=pe.id, estado='confirmado') }}" class="btn btn-success">Confirmar</a>
+                <a href="{{ url_for('admin_cambiar_pedido', pedido_id=pe.id, estado='cancelado') }}" class="btn btn-danger">Cancelar</a>
+                {% elif pe.estado == 'confirmado' %}
+                <a href="{{ url_for('admin_cambiar_pedido', pedido_id=pe.id, estado='entregado') }}" class="btn btn-primary">Entregar</a>
+                {% endif %}
+                <a href="{{ url_for('admin_eliminar_pedido', pedido_id=pe.id) }}" class="btn btn-danger" onclick="return confirm('ELIMINAR pedido?')">Eliminar</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<script>
+function filtrarTabla(tablaId, columna, texto) {
+    texto = texto.toLowerCase();
+    var tabla = document.getElementById(tablaId);
+    var filas = tabla.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    for (var i = 0; i < filas.length; i++) {
+        var celda = filas[i].getElementsByTagName('td')[columna];
+        if (celda) {
+            var textoCelda = celda.textContent || celda.innerText;
+            filas[i].style.display = textoCelda.toLowerCase().indexOf(texto) > -1 ? '' : 'none';
+        }
+    }
+}
+</script>
+
+{% endblock %}
