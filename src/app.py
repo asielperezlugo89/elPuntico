@@ -957,20 +957,42 @@ def admin_pagos():
     return render_template('admin_pagos.html', vendedores=vendedores, config=get_config(),
                            today_int=today_int, now_date=hoy)
 
+def _parsed_fecha(texto):
+    """Convierte pago_hasta (str con/sin hora, datetime o date) a date, o None."""
+    from datetime import date, datetime
+    if not texto:
+        return None
+    if isinstance(texto, datetime):
+        return texto.date()
+    if isinstance(texto, date):
+        return texto
+    s = str(texto).strip()
+    try:
+        return datetime.strptime(s[:10], '%Y-%m-%d').date()
+    except Exception:
+        return None
+
+def _sumar_un_mes(fecha):
+    """Suma un mes calendario respetando la longitud real del mes (28/29/30/31)."""
+    import calendar
+    año = fecha.year + (1 if fecha.month == 12 else 0)
+    mes = 1 if fecha.month == 12 else fecha.month + 1
+    ultimo = calendar.monthrange(año, mes)[1]
+    dia = min(fecha.day, ultimo)
+    return fecha.replace(year=año, month=mes, day=dia)
+
 @app.route('/admin/pago/<int:user_id>/extender', methods=['POST'])
 @rol_required(['admin'])
 def admin_extender_pago(user_id):
     db = get_db()
-    from datetime import datetime, timedelta
+    from datetime import date
     vendedor = db.execute("SELECT pago_hasta FROM usuarios WHERE id = ?", (user_id,)).fetchone()
     if vendedor:
-        hoy = datetime.now().date()
-        base = vendedor['pago_hasta'] if vendedor['pago_hasta'] else hoy
-        if isinstance(base, str):
-            base = datetime.strptime(base, '%Y-%m-%d').date()
-        if base < hoy:
+        hoy = date.today()
+        base = _parsed_fecha(vendedor['pago_hasta'])
+        if base is None or base < hoy:
             base = hoy
-        nueva_fecha = base + timedelta(days=30)
+        nueva_fecha = _sumar_un_mes(base)
         db.execute("UPDATE usuarios SET pago_hasta = ?, pago_activo = 1 WHERE id = ?", (nueva_fecha.isoformat(), user_id))
         db.commit()
     return redirect(url_for('admin_pagos'))

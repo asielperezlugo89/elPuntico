@@ -104,7 +104,7 @@
                 <h4>{{ v.tienda_nombre or v.nombre }} {% if v.es_vip %}<span class="pago-badge badge-vip">VIP</span>{% endif %}</h4>
                 <p>{{ v.nombre }} &middot; {{ v.num_productos }} productos &middot; {{ v.num_pedidos }} pedidos</p>
                 {% if v.pago_hasta %}
-                <p>Pago hasta: <strong>{{ v.pago_hasta }}</strong></p>
+                <p>Pago hasta: <strong>{{ (v.pago_hasta|string)[:10] }}</strong></p>
                 {% else %}
                 <p style="color:#999;">Sin fecha de pago</p>
                 {% endif %}
@@ -112,7 +112,7 @@
 
             <div class="pago-estado">
                 {% if v.pago_hasta %}
-                    {% set fecha_pago = v.pago_hasta|string|replace('-','')|int %}
+                    {% set fecha_pago = (v.pago_hasta|string)[:10]|replace('-','')|int %}
                     {% set fecha_hoy = today_int if today_int is defined else 0 %}
                     {% set dias_restantes = (fecha_pago - today_int) if today_int is defined else 999 %}
                     {% if dias_restantes < 0 %}
